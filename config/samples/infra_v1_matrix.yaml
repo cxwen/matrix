@@ -1,0 +1,7 @@
+apiVersion: infra.cxwen.com/v1
+kind: Matrix
+metadata:
+  name: matrix-sample
+spec:
+  # Add fields here
+  foo: bar

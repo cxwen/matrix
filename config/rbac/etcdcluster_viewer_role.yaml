@@ -1,0 +1,20 @@
+# permissions for end users to view etcdclusters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcdcluster-viewer-role
+rules:
+- apiGroups:
+  - infra.cxwen.com
+  resources:
+  - etcdclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - infra.cxwen.com
+  resources:
+  - etcdclusters/status
+  verbs:
+  - get

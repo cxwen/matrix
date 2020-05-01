@@ -1,0 +1,10 @@
+domain: cxwen.com
+repo: github.com/cxwen/matrix
+resources:
+- group: infra
+  kind: Matrix
+  version: v1
+- group: infra
+  kind: EtcdCluster
+  version: v1
+version: "2"
