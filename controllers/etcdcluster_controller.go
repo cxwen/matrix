@@ -24,7 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/cxwen/matrix/api/v1"
+	crdv1 "github.com/cxwen/matrix/api/v1"
 )
 
 // EtcdClusterReconciler reconciles a EtcdCluster object
@@ -34,8 +34,8 @@ type EtcdClusterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=infra.cxwen.com,resources=etcdclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=infra.cxwen.com,resources=etcdclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=crd.cxwen.com,resources=etcdclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=crd.cxwen.com,resources=etcdclusters/status,verbs=get;update;patch
 
 func (r *EtcdClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
@@ -48,6 +48,6 @@ func (r *EtcdClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 func (r *EtcdClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrav1.EtcdCluster{}).
+		For(&crdv1.EtcdCluster{}).
 		Complete(r)
 }

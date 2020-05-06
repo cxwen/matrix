@@ -1,0 +1,7 @@
+apiVersion: crd.cxwen.com/v1
+kind: EtcdCluster
+metadata:
+  name: etcdcluster-sample
+spec:
+  # Add fields here
+  foo: bar

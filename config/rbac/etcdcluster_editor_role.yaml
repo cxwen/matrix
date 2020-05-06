@@ -5,7 +5,7 @@ metadata:
   name: etcdcluster-editor-role
 rules:
 - apiGroups:
-  - infra.cxwen.com
+  - crd.cxwen.com
   resources:
   - etcdclusters
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - infra.cxwen.com
+  - crd.cxwen.com
   resources:
   - etcdclusters/status
   verbs:

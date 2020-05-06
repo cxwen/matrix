@@ -1,10 +1,19 @@
 domain: cxwen.com
 repo: github.com/cxwen/matrix
 resources:
-- group: infra
+- group: crd
+  kind: Master
+  version: v1
+- group: crd
   kind: Matrix
   version: v1
-- group: infra
+- group: crd
   kind: EtcdCluster
+  version: v1
+- group: crd
+  kind: Dns
+  version: v1
+- group: crd
+  kind: NetworkPlugin
   version: v1
 version: "2"

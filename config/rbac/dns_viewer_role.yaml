@@ -1,0 +1,20 @@
+# permissions for end users to view dns.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dns-viewer-role
+rules:
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - dns
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - dns/status
+  verbs:
+  - get

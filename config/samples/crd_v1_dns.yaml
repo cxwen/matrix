@@ -1,0 +1,7 @@
+apiVersion: crd.cxwen.com/v1
+kind: Dns
+metadata:
+  name: dns-sample
+spec:
+  # Add fields here
+  foo: bar

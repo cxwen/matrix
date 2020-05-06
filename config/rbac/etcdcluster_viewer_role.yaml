@@ -5,7 +5,7 @@ metadata:
   name: etcdcluster-viewer-role
 rules:
 - apiGroups:
-  - infra.cxwen.com
+  - crd.cxwen.com
   resources:
   - etcdclusters
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - infra.cxwen.com
+  - crd.cxwen.com
   resources:
   - etcdclusters/status
   verbs:
