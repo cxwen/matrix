@@ -15,6 +15,8 @@ WORKDIR /workspace
 #COPY controllers/ controllers/
 
 COPY . .
+
+RUN pwd; ls -al
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod vendor -a -o manager main.go
 
