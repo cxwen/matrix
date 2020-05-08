@@ -29,13 +29,28 @@ type EtcdClusterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of EtcdCluster. Edit EtcdCluster_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Version string `json:"version,omitempty"`
+	Replicas  int    `json:"replicas,omitempty"`
+	ImageRepo string `json:"imageRepo,omitempty"`
+	StorageClass string `json:"storageClass,omitempty"`
+	StorageSize string `json:"storageSize,omitempty"`
+	StorageDir string `json:"storageDir,omitempty"`
 }
+
+type EtcdPhase string
+
+const (
+	EtcdPendingPhase      EtcdPhase = "Pending"
+	EtcdInitializingPhase EtcdPhase = "Initializing"
+	EtcdReadyPhase        EtcdPhase = "Ready"
+	EtcdTeminatingPhase   EtcdPhase = "Teminating"
+)
 
 // EtcdClusterStatus defines the observed state of EtcdCluster
 type EtcdClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Phase EtcdPhase `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true

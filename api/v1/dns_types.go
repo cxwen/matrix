@@ -39,6 +39,7 @@ type DnsSpec struct {
 type DnsStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Phase string `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -1,0 +1,69 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.5
+  creationTimestamp: null
+  name: networkplugins.crd.cxwen.com
+spec:
+  group: crd.cxwen.com
+  names:
+    kind: NetworkPlugin
+    listKind: NetworkPluginList
+    plural: networkplugins
+    singular: networkplugin
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      description: NetworkPlugin is the Schema for the networkplugins API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: NetworkPluginSpec defines the desired state of NetworkPlugin
+          properties:
+            imageRepo:
+              type: string
+            type:
+              description: Foo is an example field of NetworkPlugin. Edit NetworkPlugin_types.go
+                to remove/update
+              type: string
+            version:
+              type: string
+          required:
+          - type
+          - version
+          type: object
+        status:
+          description: NetworkPluginStatus defines the observed state of NetworkPlugin
+          properties:
+            phase:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
+              type: string
+          type: object
+      type: object
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
