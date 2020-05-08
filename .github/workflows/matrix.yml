@@ -21,7 +21,7 @@ jobs:
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
         name: xwcheng/matrix
-        username: ${{ secrets.dockerhub_password }}
-        password: ${{ secrets.dockerhub_username }}
+        username: ${{ secrets.dockerhub_username }}
+        password: ${{ secrets.dockerhub_password }}
         tag_names: true
         cache: true
