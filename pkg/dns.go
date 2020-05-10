@@ -19,8 +19,8 @@ import (
 )
 
 type Dns interface {
-	Create(string, int, string, string) error
-	Delete(string, string) error
+	Create(string, int, string, string, string) error
+	Delete(string, string, string) error
 }
 
 type DnsDedploy struct {
@@ -30,7 +30,7 @@ type DnsDedploy struct {
 }
 
 func (d *DnsDedploy) Create(dnsType string, replicas int, version string, imageRegistry string, imageRepo string) error {
-	corednsDeploymentBytes, coreDNSConfigMapBytes, coreDNSServiceBytes, err := getCorednsYamlBytes()
+	corednsDeploymentBytes, coreDNSConfigMapBytes, coreDNSServiceBytes, err := getCorednsYamlBytes(imageRegistry, imageRepo, version)
 	if err != nil {
 		return errors.Wrap(err, "get coredns yaml template failer")
 	}
@@ -43,8 +43,8 @@ func (d *DnsDedploy) Create(dnsType string, replicas int, version string, imageR
 	return nil
 }
 
-func (d *DnsDedploy) Delete(string, string) error {
-	corednsDeploymentBytes, coreDNSConfigMapBytes, coreDNSServiceBytes, err := getCorednsYamlBytes()
+func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version string) error {
+	corednsDeploymentBytes, coreDNSConfigMapBytes, coreDNSServiceBytes, err := getCorednsYamlBytes(imageRegistry, imageRepo, version)
 	if err != nil {
 		return errors.Wrap(err, "get coredns yaml template failer")
 	}
@@ -271,11 +271,11 @@ func createDNSService(ctx context.Context, runtimeclient client.Client, object *
 	return nil
 }
 
-func getCorednsYamlBytes() ([]byte, []byte, []byte, error) {
+func getCorednsYamlBytes(imageRegistry string, imageRepo string, version string) ([]byte, []byte, []byte, error) {
 	// Get the YAML manifest
 	corednsDeploymentBytes, err := ParseTemplate(constants.CoreDNSDeployment, struct{ DeploymentName, Image, ControlPlaneTaintKey string }{
 		DeploymentName:       constants.CoreDNSDeploymentName,
-		Image:                fmt.Sprintf(""),
+		Image:                fmt.Sprintf("%s/%s:%s", imageRegistry, imageRepo, version),
 		ControlPlaneTaintKey: constants.LabelNodeRoleMaster,
 	})
 
