@@ -81,14 +81,14 @@ func (r *DnsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-
 func (r *DnsReconciler) createDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.Result, error) {
 	dnsType := dns.Spec.Type
 	replicas := dns.Spec.Replicas
 	version := dns.Spec.Version
 	imageRepo := dns.Spec.ImageRepo
+	imageRegistry := dns.Spec.ImageRegistry
 
-	err := dnsDeploy.Create(dnsType, replicas, version, imageRepo)
+	err := dnsDeploy.Create(dnsType, replicas, version, imageRegistry, imageRepo)
 	if err != nil {
 		r.Log.Error(err,"create dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
 		return ctrl.Result{Requeue:true}, err

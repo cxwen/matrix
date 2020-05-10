@@ -23,6 +23,7 @@ import (
 	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,12 +43,13 @@ type MasterDedploy struct {
 	context.Context
 	client.Client
 	Log             logr.Logger
+	MasterCrd       *crdv1.Master
+
 	CaCert          *x509.Certificate
 	CaKey           *rsa.PrivateKey
-
-	MasterCrd       *crdv1.Master
 	AdminKubeconfig string
 	MasterClient    runtimeclient.Client
+	ExposePort      string
 }
 
 func (m *MasterDedploy) CreateService(name string, namespace string) error {
@@ -358,6 +360,12 @@ func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRe
 		return err
 	}
 
+	// create master endpoint
+	err = m.createEndpoints()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -485,9 +493,10 @@ func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig string) error
 		return err
 	}
 
+	m.ExposePort = svc.Spec.Ports[0].TargetPort.String()
 	kubeconfigConfKey := "kubeconfig.conf"
 	kubeconfigConf := clusterInfoCm.Data[kubeconfigConfKey]
-	newServer := fmt.Sprintf("server: https://%s:%s",m.MasterCrd.Spec.Expose.Node[0], svc.Spec.Ports[0].TargetPort.String())
+	newServer := fmt.Sprintf("server: https://%s:%s",m.MasterCrd.Spec.Expose.Node[0], m.ExposePort)
 	newKubeconfigConf := strings.Replace(kubeconfigConf, "server: https://127.0.0.1:6443", newServer, -1)
 	clusterInfoCm.Data[kubeconfigConfKey] = newKubeconfigConf
 
@@ -500,18 +509,12 @@ func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig string) error
 }
 
 func (m *MasterDedploy) createKubeproxyDaemonset(image string) error {
-	svc := corev1.Service{}
-	getSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s", m.MasterCrd.Name), Namespace: m.MasterCrd.Namespace}
-	err := m.Client.Get(m.Context, getSvcOk, &svc)
-	if err != nil {
-		return err
-	}
 	proxyConfigMapBytes, err := ParseTemplate(constants.KubeProxyConfigMap19,
 		struct {
 			ControlPlaneEndpoint string
 			ProxyConfigMap       string
 		}{
-			ControlPlaneEndpoint: fmt.Sprintf("https://%s:%s",m.MasterCrd.Spec.Expose.Node[0], svc.Spec.Ports[0].TargetPort.String()),
+			ControlPlaneEndpoint: fmt.Sprintf("https://%s:%s",m.MasterCrd.Spec.Expose.Node[0], m.ExposePort),
 			ProxyConfigMap:       constants.KubeProxyConfigMap,
 		})
 
@@ -625,6 +628,32 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *MasterDedploy) createEndpoints() error {
+	exposePort, err := strconv.Atoi(m.ExposePort)
+	if err != nil {
+		return err
+	}
+	endpoint := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubernetes",
+			Namespace: "default",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{{IP:m.MasterCrd.Spec.Expose.Node[0]}},
+				Ports: []corev1.EndpointPort{{Name:"https",Port:int32(exposePort),Protocol:"TCP"}},
+			},
+		},
+	}
+
+	err = m.Client.Create(m.Context, endpoint)
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -32,6 +32,7 @@ type DnsSpec struct {
 	Type      string `json:"type"`
 	Version   string `json:"version"`
 	Replicas  int    `json:"replicas,omitempty"`
+	ImageRegistry string `json:"imageRegistry,omitempty"`
 	ImageRepo string `json:"imageRepo,omitempty"`
 }
 

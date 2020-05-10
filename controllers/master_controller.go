@@ -56,6 +56,7 @@ func (r *MasterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		Context: ctx,
 		Client: r.Client,
 		Log: r.Log,
+		MasterCrd: &master,
 	}
 
 	masterFinalizer := constants.DefaultFinalizer
