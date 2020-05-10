@@ -18,7 +18,6 @@ package internal
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -54,7 +53,6 @@ func newSpecificInformersMap(config *rest.Config,
 		codecs:            serializer.NewCodecFactory(scheme),
 		paramCodec:        runtime.NewParameterCodec(scheme),
 		resync:            resync,
-		startWait:         make(chan struct{}),
 		createListWatcher: createListWatcher,
 		namespace:         namespace,
 	}
@@ -94,9 +92,7 @@ type specificInformersMap struct {
 	// stop is the stop channel to stop informers
 	stop <-chan struct{}
 
-	// resync is the base frequency the informers are resynced
-	// a 10 percent jitter will be added to the resync period between informers
-	// so that all informers will not send list requests simultaneously.
+	// resync is the frequency the informers are resynced
 	resync time.Duration
 
 	// mu guards access to the map
@@ -104,10 +100,6 @@ type specificInformersMap struct {
 
 	// start is true if the informers have been started
 	started bool
-
-	// startWait is a channel that is closed after the
-	// informer has been started.
-	startWait chan struct{}
 
 	// createClient knows how to create a client and a list object,
 	// and allows for abstracting over the particulars of structured vs
@@ -136,18 +128,8 @@ func (ip *specificInformersMap) Start(stop <-chan struct{}) {
 
 		// Set started to true so we immediately start any informers added later.
 		ip.started = true
-		close(ip.startWait)
 	}()
 	<-stop
-}
-
-func (ip *specificInformersMap) waitForStarted(stop <-chan struct{}) bool {
-	select {
-	case <-ip.startWait:
-		return true
-	case <-stop:
-		return false
-	}
 }
 
 // HasSyncedFuncs returns all the HasSynced functions for the informers in this map.
@@ -206,7 +188,7 @@ func (ip *specificInformersMap) addInformerToMap(gvk schema.GroupVersionKind, ob
 	if err != nil {
 		return nil, false, err
 	}
-	ni := cache.NewSharedIndexInformer(lw, obj, resyncPeriod(ip.resync)(), cache.Indexers{
+	ni := cache.NewSharedIndexInformer(lw, obj, ip.resync, cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	})
 	i := &MapEntry{
@@ -291,15 +273,4 @@ func createUnstructuredListWatch(gvk schema.GroupVersionKind, ip *specificInform
 			return dynamicClient.Resource(mapping.Resource).Watch(opts)
 		},
 	}, nil
-}
-
-// resyncPeriod returns a function which generates a duration each time it is
-// invoked; this is so that multiple controllers don't get into lock-step and all
-// hammer the apiserver with list requests simultaneously.
-func resyncPeriod(resync time.Duration) func() time.Duration {
-	return func() time.Duration {
-		// the factor will fall into [0.9, 1.1)
-		factor := rand.Float64()/5.0 + 0.9
-		return time.Duration(float64(resync.Nanoseconds()) * factor)
-	}
 }

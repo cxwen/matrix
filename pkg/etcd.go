@@ -26,13 +26,13 @@ type EtcdCluster interface {
 	DeleteEtcd(string, string) error
 }
 
-type EctdCluster struct {
+type EctdDeploy struct {
 	context.Context
 	client.Client
 	Log logr.Logger
 }
 
-func (e *EctdCluster) CreateService(etcdClusterName string, namespace string) error {
+func (e *EctdDeploy) CreateService(etcdClusterName string, namespace string) error {
 	headLessService := corev1.Service{
 		TypeMeta: constants.ServiceTypemeta,
 		ObjectMeta: metav1.ObjectMeta{
@@ -106,9 +106,9 @@ func (e *EctdCluster) CreateService(etcdClusterName string, namespace string) er
 	return nil
 }
 
-func (e *EctdCluster) CreateEtcdCerts(etcdClusterName string, namespace string) error {
+func (e *EctdDeploy) CreateEtcdCerts(etcdClusterName string, namespace string) error {
 	clientSvc := &corev1.Service{}
-	getClientSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s-client", etcdClusterName), Namespace: ""}
+	getClientSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s-client", etcdClusterName), Namespace: namespace}
 	err := e.Client.Get(e.Context, getClientSvcOk, clientSvc)
 	if err != nil {
 		return err
@@ -208,7 +208,7 @@ func (e *EctdCluster) CreateEtcdCerts(etcdClusterName string, namespace string) 
 	return nil
 }
 
-func (e *EctdCluster) CreateEtcdStatefulSet(etcdClusterName string, namespace string, replicas int, image string, datadir string) error {
+func (e *EctdDeploy) CreateEtcdStatefulSet(etcdClusterName string, namespace string, replicas int, image string, datadir string) error {
 	replicasInt32 := int32(replicas)
 	selector := map[string]string{"k8s-app": etcdClusterName}
 	statefulSet := appsv1.StatefulSet{
@@ -331,7 +331,6 @@ func (e *EctdCluster) CreateEtcdStatefulSet(etcdClusterName string, namespace st
 						},
 					},
 				},
-
 			},
 		},
 	}
@@ -350,7 +349,7 @@ func (e *EctdCluster) CreateEtcdStatefulSet(etcdClusterName string, namespace st
 	return nil
 }
 
-func (e *EctdCluster) CheckEtcdReady(etcdClusterName string, namespace string, replicas int) error {
+func (e *EctdDeploy) CheckEtcdReady(etcdClusterName string, namespace string, replicas int) error {
 	var wg sync.WaitGroup
 	var err error
 	wg.Add(1)
@@ -392,7 +391,7 @@ func (e *EctdCluster) CheckEtcdReady(etcdClusterName string, namespace string, r
 	return nil
 }
 
-func (e *EctdCluster) DeleteEtcd(etcdClusterName string, namespace string) error {
+func (e *EctdDeploy) DeleteEtcd(etcdClusterName string, namespace string) error {
 	// delete statefulset
 	statefulSet := appsv1.StatefulSet{
 		TypeMeta: constants.StatefulsetTypemeta,

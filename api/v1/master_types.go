@@ -29,16 +29,41 @@ type MasterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Master. Edit Master_types.go to remove/update
-	Version   string `json:"version,omitempty"`
-	Replicas  int    `json:"replicas,omitempty"`
-	ImageRepo string `json:"imageRepo,omitempty"`
+	Version       string    `json:"version,omitempty"`
+	Replicas      int       `json:"replicas,omitempty"`
+	ImageRegistry string    `json:"imageRegistry,omitempty"`
+	ImageRepo     ImageRepo `json:"imageRegistry,omitempty"`
+	EtcdCluster   string    `json:"etcdCluster,omitempty"`
+	Expose        Expose    `json:"expose,omitempty"`
 }
+
+type ImageRepo struct {
+	Apiserver         string `json:"apiserver,omitempty"`
+	ControllerManager string `json:"controllerManager,omitempty"`
+	Scheduler         string `json:"scheduler,omitempty"`
+	Proxy             string `json:"scheduler,omitempty"`
+}
+
+type Expose struct {
+	Type string   `json:"type,omitempty"`
+	Node []string `json:"type,omitempty"`
+}
+
+type MasterPhase string
+
+const (
+	MasterInitializingPhase MasterPhase = "Initializing"
+	MasterRunningPhase      MasterPhase = "Running"
+	MasterTeminatingPhase   MasterPhase = "Teminating"
+)
 
 // MasterStatus defines the observed state of Master
 type MasterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Phase string `json:"phase,omitempty"`
+	Phase MasterPhase `json:"phase,omitempty"`
+	ExposeUrl []string `json:"exposeUrl,omitempty"`
+	AdminKubeconfig string `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true

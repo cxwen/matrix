@@ -24,6 +24,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod vendor -a
 FROM xwcheng/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY bin/kubeadm /usr/bin/
 USER nonroot:nonroot
 
 ENTRYPOINT ["/manager"]

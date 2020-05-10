@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"github.com/cxwen/matrix/common/constants"
+	. "github.com/cxwen/matrix/pkg"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,10 +40,69 @@ type DnsReconciler struct {
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=dns/status,verbs=get;update;patch
 
 func (r *DnsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("dns", req.NamespacedName)
+	ctx := context.Background()
+	log := r.Log.WithValues("dns", req.NamespacedName)
 
-	// your logic here
+	log.V(1).Info("Dns reconcile triggering")
+	dns := crdv1.Dns{}
+
+	var err error
+	if err = r.Get(ctx, req.NamespacedName, &dns); err != nil {
+		log.Error(err, "unable to fetch dns")
+		return ctrl.Result{}, ignoreNotFound(err)
+	}
+
+	dnsDeploy := DnsDedploy{
+		Context: ctx,
+		Client: r.Client,
+		Log: r.Log,
+	}
+
+	dnsFinalizer := constants.DefaultFinalizer
+	if dns.ObjectMeta.DeletionTimestamp.IsZero() {
+		if ! containsString(dns.ObjectMeta.Finalizers, dnsFinalizer) {
+			dns.ObjectMeta.Finalizers = append(dns.ObjectMeta.Finalizers, dnsFinalizer)
+			return r.createDns(&dnsDeploy, &dns)
+		}
+	} else {
+		if containsString(dns.ObjectMeta.Finalizers, dnsFinalizer) {
+			result, err := r.deleteDns(&dnsDeploy, &dns)
+			if err != nil {
+				return result, err
+			}
+
+			dns.ObjectMeta.Finalizers = removeString(dns.ObjectMeta.Finalizers, dnsFinalizer)
+			if err = r.Update(context.Background(), &dns); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+
+func (r *DnsReconciler) createDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.Result, error) {
+	dnsType := dns.Spec.Type
+	replicas := dns.Spec.Replicas
+	version := dns.Spec.Version
+	imageRepo := dns.Spec.ImageRepo
+
+	err := dnsDeploy.Create(dnsType, replicas, version, imageRepo)
+	if err != nil {
+		r.Log.Error(err,"create dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DnsReconciler) deleteDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.Result, error) {
+	err := dnsDeploy.Delete(dns.Name, dns.Namespace)
+	if err != nil {
+		r.Log.Error(err,"delete dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
+		return ctrl.Result{Requeue:true}, err
+	}
 
 	return ctrl.Result{}, nil
 }

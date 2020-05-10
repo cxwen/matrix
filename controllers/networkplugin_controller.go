@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"github.com/cxwen/matrix/common/constants"
+	. "github.com/cxwen/matrix/pkg"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,10 +40,55 @@ type NetworkPluginReconciler struct {
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=networkplugins/status,verbs=get;update;patch
 
 func (r *NetworkPluginReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("networkplugin", req.NamespacedName)
+	ctx := context.Background()
+	log := r.Log.WithValues("networkplugin", req.NamespacedName)
 
-	// your logic here
+	log.V(1).Info("NetworkPlugin reconcile triggering")
+	networkplugin := crdv1.NetworkPlugin{}
+
+	var err error
+	if err = r.Get(ctx, req.NamespacedName, &networkplugin); err != nil {
+		log.Error(err, "unable to fetch networkplugin")
+		return ctrl.Result{}, ignoreNotFound(err)
+	}
+
+	matrixDeploy := NetworkPluginDedploy{
+		Context: ctx,
+		Client: r.Client,
+		Log: r.Log,
+	}
+
+	networkpluginFinalizer := constants.DefaultFinalizer
+	if networkplugin.ObjectMeta.DeletionTimestamp.IsZero() {
+		if ! containsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
+			networkplugin.ObjectMeta.Finalizers = append(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer)
+			return r.createNetworkPlugin(&matrixDeploy, &networkplugin)
+		}
+	} else {
+		if containsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
+			result, err := r.deleteNetworkPlugin(&matrixDeploy, &networkplugin)
+			if err != nil {
+				return result, err
+			}
+
+			networkplugin.ObjectMeta.Finalizers = removeString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer)
+			if err = r.Update(context.Background(), &networkplugin); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	return ctrl.Result{}, nil
+
+	return ctrl.Result{}, nil
+}
+
+func (r *NetworkPluginReconciler) createNetworkPlugin(networkPluginDeploy *NetworkPluginDedploy, networkPlugin *crdv1.NetworkPlugin) (ctrl.Result, error) {
+
+	return ctrl.Result{}, nil
+}
+
+func (r *NetworkPluginReconciler) deleteNetworkPlugin(networkPluginDeploy *NetworkPluginDedploy, networkPlugin *crdv1.NetworkPlugin) (ctrl.Result, error) {
 
 	return ctrl.Result{}, nil
 }

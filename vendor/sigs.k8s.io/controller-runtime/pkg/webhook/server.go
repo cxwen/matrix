@@ -33,6 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics"
 )
 
+const (
+	certName = "tls.crt"
+	keyName  = "tls.key"
+)
+
 // DefaultPort is the default port that the webhook server serves.
 var DefaultPort = 443
 
@@ -47,15 +52,12 @@ type Server struct {
 	// It will be defaulted to 443 if unspecified.
 	Port int
 
-	// CertDir is the directory that contains the server key and certificate. The
-	// server key and certificate.
+	// CertDir is the directory that contains the server key and certificate.
+	// If using FSCertWriter in Provisioner, the server itself will provision the certificate and
+	// store it in this directory.
+	// If using SecretCertWriter in Provisioner, the server will provision the certificate in a secret,
+	// the user is responsible to mount the secret to the this location for the server to consume.
 	CertDir string
-
-	// CertName is the server certificate name. Defaults to tls.crt.
-	CertName string
-
-	// CertName is the server key name. Defaults to tls.key.
-	KeyName string
 
 	// WebhookMux is the multiplexer that handles different webhooks.
 	WebhookMux *http.ServeMux
@@ -85,14 +87,6 @@ func (s *Server) setDefaults() {
 	if len(s.CertDir) == 0 {
 		s.CertDir = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs")
 	}
-
-	if len(s.CertName) == 0 {
-		s.CertName = "tls.crt"
-	}
-
-	if len(s.KeyName) == 0 {
-		s.KeyName = "tls.key"
-	}
 }
 
 // NeedLeaderElection implements the LeaderElectionRunnable interface, which indicates
@@ -112,7 +106,6 @@ func (s *Server) Register(path string, hook http.Handler) {
 	// TODO(directxman12): call setfields if we've already started the server
 	s.webhooks[path] = hook
 	s.WebhookMux.Handle(path, instrumentedHook(path, hook))
-	log.Info("registering webhook", "path", path)
 }
 
 // instrumentedHook adds some instrumentation on top of the given webhook.
@@ -132,8 +125,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	s.defaultingOnce.Do(s.setDefaults)
 
 	baseHookLog := log.WithName("webhooks")
-	baseHookLog.Info("starting webhook server")
-
 	// inject fields here as opposed to in Register so that we're certain to have our setFields
 	// function available.
 	for hookPath, webhook := range s.webhooks {
@@ -149,8 +140,8 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 	}
 
-	certPath := filepath.Join(s.CertDir, s.CertName)
-	keyPath := filepath.Join(s.CertDir, s.KeyName)
+	certPath := filepath.Join(s.CertDir, certName)
+	keyPath := filepath.Join(s.CertDir, keyName)
 
 	certWatcher, err := certwatcher.New(certPath, keyPath)
 	if err != nil {
@@ -173,8 +164,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		return err
 	}
 
-	log.Info("serving webhook server", "host", s.Host, "port", s.Port)
-
 	srv := &http.Server{
 		Handler: s.WebhookMux,
 	}
@@ -182,7 +171,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	idleConnsClosed := make(chan struct{})
 	go func() {
 		<-stop
-		log.Info("shutting down webhook server")
 
 		// TODO: use a context with reasonable timeout
 		if err := srv.Shutdown(context.Background()); err != nil {

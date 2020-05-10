@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"github.com/cxwen/matrix/common/constants"
+	. "github.com/cxwen/matrix/pkg"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,10 +40,55 @@ type MatrixReconciler struct {
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=matrices/status,verbs=get;update;patch
 
 func (r *MatrixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("matrix", req.NamespacedName)
+	ctx := context.Background()
+	log := r.Log.WithValues("matrix", req.NamespacedName)
 
-	// your logic here
+	log.V(1).Info("Matrix reconcile triggering")
+	matrix := crdv1.Matrix{}
+
+	var err error
+	if err = r.Get(ctx, req.NamespacedName, &matrix); err != nil {
+		log.Error(err, "unable to fetch matrix")
+		return ctrl.Result{}, ignoreNotFound(err)
+	}
+
+	matrixDeploy := MatrixDedploy{
+		Context: ctx,
+		Client: r.Client,
+		Log: r.Log,
+	}
+
+	matrixFinalizer := constants.DefaultFinalizer
+	if matrix.ObjectMeta.DeletionTimestamp.IsZero() {
+		if ! containsString(matrix.ObjectMeta.Finalizers, matrixFinalizer) {
+			matrix.ObjectMeta.Finalizers = append(matrix.ObjectMeta.Finalizers, matrixFinalizer)
+			return r.createMatrix(&matrixDeploy, &matrix)
+		}
+	} else {
+		if containsString(matrix.ObjectMeta.Finalizers, matrixFinalizer) {
+			result, err := r.deleteMatrix(&matrixDeploy, &matrix)
+			if err != nil {
+				return result, err
+			}
+
+			matrix.ObjectMeta.Finalizers = removeString(matrix.ObjectMeta.Finalizers, matrixFinalizer)
+			if err = r.Update(context.Background(), &matrix); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	return ctrl.Result{}, nil
+
+	return ctrl.Result{}, nil
+}
+
+func (r *MatrixReconciler) createMatrix(matrixDeploy *MatrixDedploy, matrix *crdv1.Matrix) (ctrl.Result, error) {
+
+	return ctrl.Result{}, nil
+}
+
+func (r *MatrixReconciler) deleteMatrix(matrixDeploy *MatrixDedploy, matrix *crdv1.Matrix) (ctrl.Result, error) {
 
 	return ctrl.Result{}, nil
 }
@@ -51,3 +98,4 @@ func (r *MatrixReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&crdv1.Matrix{}).
 		Complete(r)
 }
+

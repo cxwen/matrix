@@ -19,6 +19,11 @@ var (
 		APIVersion: "apps/v1",
 		Kind:       "StatefulSet",
 	}
+
+	DeploymentTypemeta = metav1.TypeMeta{
+		APIVersion: "extensions/v1beta1",
+		Kind:       "Deployment",
+	}
 )
 
 const (
