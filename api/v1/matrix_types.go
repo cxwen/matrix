@@ -51,7 +51,7 @@ type MatrixStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="K8SVERSION",type="string",JSONPath=".spec.master.version",description="version"
 // +kubebuilder:printcolumn:name="K8SREPLICAS",type="string",JSONPath=".spec.master.replicas",description="replicas"
 // +kubebuilder:printcolumn:name="ETCDVERSION",type="string",JSONPath=".spec.etcd.version",description="version"

@@ -35,7 +35,8 @@ spec:
     plural: dns
     singular: dns
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: Dns is the Schema for the dns API

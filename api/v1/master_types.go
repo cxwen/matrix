@@ -67,7 +67,7 @@ type MasterStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="version"
 // +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="pod replicas"
 // +kubebuilder:printcolumn:name="ETCD",type="string",JSONPath=".spec.etcdCluster",description="etcdcluster name"

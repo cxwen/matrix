@@ -52,7 +52,7 @@ type DnsStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="dns type"
 // +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="dns version"
 // +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="dns pod replicas"

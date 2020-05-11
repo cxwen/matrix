@@ -51,7 +51,8 @@ spec:
     plural: matrices
     singular: matrix
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: Matrix is the Schema for the matrices API

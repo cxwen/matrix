@@ -43,7 +43,8 @@ spec:
     plural: masters
     singular: master
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: Master is the Schema for the masters API

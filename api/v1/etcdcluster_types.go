@@ -66,7 +66,7 @@ type EtcdCluster struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="=version"
 // +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="=pod replicas"
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"

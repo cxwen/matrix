@@ -72,7 +72,7 @@ type NetworkPlugin struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="type"
 // +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.calico.version",description="dns version"
 // +kubebuilder:printcolumn:name="IPAUTODETECTIONMETHOD",type="string",JSONPath=".spec.calico.ipAutodetectionMethod",description="ipAutodetectionMethod"
