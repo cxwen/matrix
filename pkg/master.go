@@ -22,7 +22,6 @@ import (
 	rbachelper "k8s.io/kubernetes/pkg/apis/rbac/v1"
 	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,7 +47,7 @@ type MasterDedploy struct {
 	CaCert          *x509.Certificate
 	CaKey           *rsa.PrivateKey
 	AdminKubeconfig string
-	MasterClient    runtimeclient.Client
+	MatrixClient    client.Client
 	ExposePort      string
 }
 
@@ -198,6 +197,14 @@ func (m *MasterDedploy) CreateKubeconfig(name string, namespace string) error {
 	}
 	m.AdminKubeconfig = string(adminKubeconfig)
 
+	matrixClient, err := GetRuntimeClient(m.AdminKubeconfig)
+	if err != nil {
+		return fmt.Errorf("Init matrix client failure, error: %v\n", err)
+	}
+
+	m.MatrixClient = matrixClient
+	MatrixClient[strings.ReplaceAll(name, "-ec", "")] = matrixClient
+
 	controllerManagerKUbeconfig, err := CreateControllerManagerKUbeconfig(m.CaCert, m.CaKey)
 	if err != nil {
 		return err
@@ -342,7 +349,7 @@ func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRe
 				Namespace: ns,
 			},
 		}
-		err := m.MasterClient.Create(m.Context, &nsObject)
+		err := m.MatrixClient.Create(m.Context, &nsObject)
 		if err != nil {
 			return err
 		}
@@ -534,8 +541,8 @@ func (m *MasterDedploy) createKubeproxyDaemonset(image string) error {
 	}
 
 	// Create the ConfigMap for kube-proxy or update it in case it already exists
-	if err := m.Client.Create(m.Context, kubeproxyConfigMap); apierrors.IsAlreadyExists(err) {
-		err = m.Client.Update(m.Context, kubeproxyConfigMap)
+	if err := m.MatrixClient.Create(m.Context, kubeproxyConfigMap); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, kubeproxyConfigMap)
 		if err != nil {
 			return err
 		}
@@ -547,8 +554,8 @@ func (m *MasterDedploy) createKubeproxyDaemonset(image string) error {
 	}
 
 	// Create the daemonset for kube-proxy or update it in case it already exists
-	if err := m.Client.Create(m.Context, kubeproxyDaemonSet); apierrors.IsAlreadyExists(err) {
-		err = m.Client.Update(m.Context, kubeproxyDaemonSet)
+	if err := m.MatrixClient.Create(m.Context, kubeproxyDaemonSet); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, kubeproxyDaemonSet)
 		if err != nil {
 			return err
 		}
@@ -581,8 +588,8 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		},
 	}
 
-	if err := m.Client.Create(m.Context, clusterRolebinding); apierrors.IsAlreadyExists(err) {
-		err = m.Client.Update(m.Context, clusterRolebinding)
+	if err := m.MatrixClient.Create(m.Context, clusterRolebinding); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, clusterRolebinding)
 		if err != nil {
 			return err
 		}
@@ -598,8 +605,8 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		},
 	}
 
-	if err := m.Client.Create(m.Context, role); apierrors.IsAlreadyExists(err) {
-		err = m.Client.Update(m.Context, role)
+	if err := m.MatrixClient.Create(m.Context, role); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, role)
 		if err != nil {
 			return err
 		}
@@ -623,8 +630,8 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		},
 	}
 
-	if err := m.Client.Create(m.Context, roleBinding); apierrors.IsAlreadyExists(err) {
-		err = m.Client.Update(m.Context, roleBinding)
+	if err := m.MatrixClient.Create(m.Context, roleBinding); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, roleBinding)
 		if err != nil {
 			return err
 		}
@@ -651,7 +658,7 @@ func (m *MasterDedploy) createEndpoints() error {
 		},
 	}
 
-	err = m.Client.Create(m.Context, endpoint)
+	err = m.MatrixClient.Create(m.Context, endpoint)
 	if err != nil {
 		return err
 	}

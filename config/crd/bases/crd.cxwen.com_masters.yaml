@@ -8,6 +8,34 @@ metadata:
   creationTimestamp: null
   name: masters.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.version
+    description: version
+    name: VERSION
+    type: string
+  - JSONPath: .spec.replicas
+    description: pod replicas
+    name: REPLICAS
+    type: string
+  - JSONPath: .spec.etcdCluster
+    description: etcdcluster name
+    name: ETCD
+    type: string
+  - JSONPath: .spec.expose.type.
+    description: expose type
+    name: EXPOSETYPE
+    type: string
+  - JSONPath: .status.exposeUrl
+    description: expose url
+    name: EXPOSEURL
+    type: string
+  - JSONPath: .status.phase
+    description: phase
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: Master
@@ -15,6 +43,7 @@ spec:
     plural: masters
     singular: master
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Master is the Schema for the masters API
@@ -22,30 +51,57 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: MasterSpec defines the desired state of Master
           properties:
-            imageRepo:
+            etcdCluster:
               type: string
+            expose:
+              properties:
+                node:
+                  items:
+                    type: string
+                  type: array
+                type:
+                  type: string
+              required:
+              - node
+              - type
+              type: object
+            imageRegistry:
+              properties:
+                apiserver:
+                  type: string
+                controllerManager:
+                  type: string
+                scheduler:
+                  type: string
+              type: object
             replicas:
               type: integer
             version:
               description: Foo is an example field of Master. Edit Master_types.go
                 to remove/update
               type: string
+          required:
+          - expose
           type: object
         status:
           description: MasterStatus defines the observed state of Master
           properties:
+            exposeUrl:
+              items:
+                type: string
+              type: array
             phase:
               type: string
           type: object

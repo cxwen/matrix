@@ -29,16 +29,38 @@ type MatrixSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Matrix. Edit Matrix_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Master *MasterSpec      `json:"master,omitempty"`
+	Etcd   *EtcdClusterSpec `json:"etcd,omitempty"`
+	Dns    *DnsSpec         `json:"dns,omitempty"`
+	NetworkPlugin *NetworkPluginSpec `json:"networkPlugin,omitempty"`
 }
+
+type MatrixPhase string
+
+const (
+	MatrixInitializingPhase MatrixPhase = "Initializing"
+	MatrixReadyPhase        MatrixPhase = "Ready"
+	MatrixTeminatingPhase   MatrixPhase = "Teminating"
+)
 
 // MatrixStatus defines the observed state of Matrix
 type MatrixStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Phase MatrixPhase `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true
+
+// +kubebuilder:printcolumn:name="K8SVERSION",type="string",JSONPath=".spec.master.version",description="version"
+// +kubebuilder:printcolumn:name="K8SREPLICAS",type="string",JSONPath=".spec.master.replicas",description="replicas"
+// +kubebuilder:printcolumn:name="ETCDVERSION",type="string",JSONPath=".spec.etcd.version",description="version"
+// +kubebuilder:printcolumn:name="ETCDREPLICAS",type="string",JSONPath=".spec.etcd.replicas",description="replicas"
+// +kubebuilder:printcolumn:name="DNSVERSION",type="string",JSONPath=".spec.dns.version",description="version"
+// +kubebuilder:printcolumn:name="NETWORKPLUGIN",type="string",JSONPath=".spec.networkPlugin.type.",description="network plugin"
+// +kubebuilder:printcolumn:name="NETWORKPLUGINVERION",type="string",JSONPath=".spec.networkPlugin.calico.version.",description="network plugin"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Matrix is the Schema for the matrices API
 type Matrix struct {

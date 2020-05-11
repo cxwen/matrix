@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"github.com/cxwen/matrix/common/constants"
+	. "github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
 
 	"github.com/go-logr/logr"
@@ -56,6 +57,7 @@ func (r *DnsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		Context: ctx,
 		Client: r.Client,
 		Log: r.Log,
+		MatrixClient: MatrixClient[dns.Name],
 	}
 
 	dnsFinalizer := constants.DefaultFinalizer
@@ -88,9 +90,23 @@ func (r *DnsReconciler) createDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.R
 	imageRepo := dns.Spec.ImageRepo
 	imageRegistry := dns.Spec.ImageRegistry
 
-	err := dnsDeploy.Create(dnsType, replicas, version, imageRegistry, imageRepo)
+	dns.Status.Phase = crdv1.DnsInitializingPhase
+	err := r.Status().Update(dnsDeploy.Context, dns)
+	if err != nil {
+		r.Log.Error(err, "update dns status phase failure", "dns", dns.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	err = dnsDeploy.Create(dnsType, replicas, version, imageRegistry, imageRepo)
 	if err != nil {
 		r.Log.Error(err,"create dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	dns.Status.Phase = crdv1.DnsRunningPhase
+	err = r.Status().Update(dnsDeploy.Context, dns)
+	if err != nil {
+		r.Log.Error(err, "update dns status phase failure", "dns", dns.Name)
 		return ctrl.Result{Requeue:true}, err
 	}
 
@@ -98,7 +114,14 @@ func (r *DnsReconciler) createDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.R
 }
 
 func (r *DnsReconciler) deleteDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.Result, error) {
-	err := dnsDeploy.Delete(dns.Name, dns.Namespace)
+	dns.Status.Phase = crdv1.DnsTeminatingPhase
+	err := r.Status().Update(dnsDeploy.Context, dns)
+	if err != nil {
+		r.Log.Error(err, "update dns status phase failure when delete", "dns", dns.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	err = dnsDeploy.Delete(dns.Spec.Type, dns.Spec.Version, dns.Spec.ImageRegistry, dns.Spec.ImageRepo)
 	if err != nil {
 		r.Log.Error(err,"delete dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
 		return ctrl.Result{Requeue:true}, err

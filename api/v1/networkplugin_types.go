@@ -29,16 +29,35 @@ type NetworkPluginSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of NetworkPlugin. Edit NetworkPlugin_types.go to remove/update
-	Type      string `json:"type"`
-	Version   string `json:"version"`
-	ImageRepo string `json:"imageRepo,omitempty"`
+	Type   string       `json:"type,omitempty"`
+	Calico *CalicoConfig `json:"calico,omitempty"`
 }
+
+type CalicoConfig struct {
+	Version                 string `json:"version,omitempty"`
+	ImageRegistry           string `json:"imageRegistry,omitempty"`
+	InstallCniImageRepo     string `json:"installCniImageRepo,omitempty"`
+	NodeImageRepo           string `json:"nodeImageRepo,omitempty"`
+	FlexvolDriverImageRepo  string `json:"nodeImageRepo,omitempty"`
+	KubeControllerImageRepo string `json:"kubeControllerImageRepo,omitempty"`
+	IpAutodetectionMethod   string `json:"ipAutodetectionMethod,omitempty"`
+	Ipv4poolIpip            string `json:"ipv4poolIpip,omitempty"`
+	Ipv4poolCidr            string `json:"ipv4poolCidr,omitempty"`
+}
+
+type NetworkPluginPhase string
+
+const (
+	NetworkPluginInitializingPhase NetworkPluginPhase = "Initializing"
+	NetworkPluginRunningPhase      NetworkPluginPhase = "Running"
+	NetworkPluginTeminatingPhase   NetworkPluginPhase = "Teminating"
+)
 
 // NetworkPluginStatus defines the observed state of NetworkPlugin
 type NetworkPluginStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Phase string `json:"phase,omitempty"`
+	Phase NetworkPluginPhase `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -53,6 +72,14 @@ type NetworkPlugin struct {
 }
 
 // +kubebuilder:object:root=true
+
+// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="type"
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.calico.version",description="dns version"
+// +kubebuilder:printcolumn:name="IPAUTODETECTIONMETHOD",type="string",JSONPath=".spec.calico.ipAutodetectionMethod",description="ipAutodetectionMethod"
+// +kubebuilder:printcolumn:name="IPV4POOLIPIP",type="string",JSONPath=".spec.calico.Ipv4poolIpip",description="Ipv4poolIpip"
+// +kubebuilder:printcolumn:name="IPV4POOLCIDR",type="string",JSONPath=".spec.calico.Ipv4poolCidr",description="Ipv4poolCidr"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // NetworkPluginList contains a list of NetworkPlugin
 type NetworkPluginList struct {

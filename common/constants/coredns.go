@@ -5,7 +5,7 @@ const (
 	// This is a duplicate definition of the constant in pkg/controller/service/service_controller.go
 	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
 	CoreDNSDeploymentName = "coredns"
-	UnableToDecodeCoreDNS      = "unable to decode CoreDNS"
+	UnableToDecodeCoreDNS = "unable to decode CoreDNS"
 
 	// KubeDNSDeployment is the kube-dns Deployment manifest for the kube-dns manifest for v1.7+
 	KubeDNSDeployment = `

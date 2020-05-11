@@ -1,3 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: matrix-system
+---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -6,6 +13,26 @@ metadata:
   creationTimestamp: null
   name: dns.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.type
+    description: dns type
+    name: TYPE
+    type: string
+  - JSONPath: .spec.version
+    description: dns version
+    name: VERSION
+    type: string
+  - JSONPath: .spec.replicas
+    description: dns pod replicas
+    name: REPLICAS
+    type: string
+  - JSONPath: .status.phase
+    description: the phase of dns
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: Dns
@@ -13,6 +40,7 @@ spec:
     plural: dns
     singular: dns
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Dns is the Schema for the dns API
@@ -20,18 +48,20 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: DnsSpec defines the desired state of Dns
           properties:
+            imageRegistry:
+              type: string
             imageRepo:
               type: string
             replicas:
@@ -89,18 +119,20 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: EtcdClusterSpec defines the desired state of EtcdCluster
           properties:
+            imageRegistry:
+              type: string
             imageRepo:
               type: string
             replicas:
@@ -146,6 +178,34 @@ metadata:
   creationTimestamp: null
   name: masters.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.version
+    description: version
+    name: VERSION
+    type: string
+  - JSONPath: .spec.replicas
+    description: pod replicas
+    name: REPLICAS
+    type: string
+  - JSONPath: .spec.etcdCluster
+    description: etcdcluster name
+    name: ETCD
+    type: string
+  - JSONPath: .spec.expose.type.
+    description: expose type
+    name: EXPOSETYPE
+    type: string
+  - JSONPath: .status.exposeUrl
+    description: expose url
+    name: EXPOSEURL
+    type: string
+  - JSONPath: .status.phase
+    description: phase
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: Master
@@ -153,6 +213,7 @@ spec:
     plural: masters
     singular: master
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Master is the Schema for the masters API
@@ -160,30 +221,57 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: MasterSpec defines the desired state of Master
           properties:
-            imageRepo:
+            etcdCluster:
               type: string
+            expose:
+              properties:
+                node:
+                  items:
+                    type: string
+                  type: array
+                type:
+                  type: string
+              required:
+              - node
+              - type
+              type: object
+            imageRegistry:
+              properties:
+                apiserver:
+                  type: string
+                controllerManager:
+                  type: string
+                scheduler:
+                  type: string
+              type: object
             replicas:
               type: integer
             version:
               description: Foo is an example field of Master. Edit Master_types.go
                 to remove/update
               type: string
+          required:
+          - expose
           type: object
         status:
           description: MasterStatus defines the observed state of Master
           properties:
+            exposeUrl:
+              items:
+                type: string
+              type: array
             phase:
               type: string
           type: object
@@ -208,6 +296,42 @@ metadata:
   creationTimestamp: null
   name: matrices.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.master.version
+    description: version
+    name: K8SVERSION
+    type: string
+  - JSONPath: .spec.master.replicas
+    description: replicas
+    name: K8SREPLICAS
+    type: string
+  - JSONPath: .spec.etcd.version
+    description: version
+    name: ETCDVERSION
+    type: string
+  - JSONPath: .spec.etcd.replicas
+    description: replicas
+    name: ETCDREPLICAS
+    type: string
+  - JSONPath: .spec.dns.version
+    description: version
+    name: DNSVERSION
+    type: string
+  - JSONPath: .spec.networkPlugin.type.
+    description: network plugin
+    name: NETWORKPLUGIN
+    type: string
+  - JSONPath: .spec.networkPlugin.calico.version.
+    description: network plugin
+    name: NETWORKPLUGINVERION
+    type: string
+  - JSONPath: .status.phase
+    description: phase
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: Matrix
@@ -215,6 +339,7 @@ spec:
     plural: matrices
     singular: matrix
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Matrix is the Schema for the matrices API
@@ -222,25 +347,129 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: MatrixSpec defines the desired state of Matrix
           properties:
-            foo:
+            dns:
+              description: DnsSpec defines the desired state of Dns
+              properties:
+                imageRegistry:
+                  type: string
+                imageRepo:
+                  type: string
+                replicas:
+                  type: integer
+                type:
+                  description: Foo is an example field of Dns. Edit Dns_types.go to
+                    remove/update
+                  type: string
+                version:
+                  type: string
+              required:
+              - type
+              - version
+              type: object
+            etcd:
+              description: EtcdClusterSpec defines the desired state of EtcdCluster
+              properties:
+                imageRegistry:
+                  type: string
+                imageRepo:
+                  type: string
+                replicas:
+                  type: integer
+                storageClass:
+                  type: string
+                storageDir:
+                  type: string
+                storageSize:
+                  type: string
+                version:
+                  description: Foo is an example field of EtcdCluster. Edit EtcdCluster_types.go
+                    to remove/update
+                  type: string
+              type: object
+            master:
               description: Foo is an example field of Matrix. Edit Matrix_types.go
                 to remove/update
-              type: string
+              properties:
+                etcdCluster:
+                  type: string
+                expose:
+                  properties:
+                    node:
+                      items:
+                        type: string
+                      type: array
+                    type:
+                      type: string
+                  required:
+                  - node
+                  - type
+                  type: object
+                imageRegistry:
+                  properties:
+                    apiserver:
+                      type: string
+                    controllerManager:
+                      type: string
+                    scheduler:
+                      type: string
+                  type: object
+                replicas:
+                  type: integer
+                version:
+                  description: Foo is an example field of Master. Edit Master_types.go
+                    to remove/update
+                  type: string
+              required:
+              - expose
+              type: object
+            networkPlugin:
+              description: NetworkPluginSpec defines the desired state of NetworkPlugin
+              properties:
+                calico:
+                  properties:
+                    imageRegistry:
+                      type: string
+                    installCniImageRepo:
+                      type: string
+                    ipAutodetectionMethod:
+                      type: string
+                    ipv4poolCidr:
+                      type: string
+                    ipv4poolIpip:
+                      type: string
+                    kubeControllerImageRepo:
+                      type: string
+                    nodeImageRepo:
+                      type: string
+                    version:
+                      type: string
+                  type: object
+                type:
+                  description: Foo is an example field of NetworkPlugin. Edit NetworkPlugin_types.go
+                    to remove/update
+                  type: string
+              type: object
           type: object
         status:
           description: MatrixStatus defines the observed state of Matrix
+          properties:
+            phase:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
+              type: string
           type: object
       type: object
   version: v1
@@ -277,29 +506,41 @@ spec:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
           description: NetworkPluginSpec defines the desired state of NetworkPlugin
           properties:
-            imageRepo:
-              type: string
+            calico:
+              properties:
+                imageRegistry:
+                  type: string
+                installCniImageRepo:
+                  type: string
+                ipAutodetectionMethod:
+                  type: string
+                ipv4poolCidr:
+                  type: string
+                ipv4poolIpip:
+                  type: string
+                kubeControllerImageRepo:
+                  type: string
+                nodeImageRepo:
+                  type: string
+                version:
+                  type: string
+              type: object
             type:
               description: Foo is an example field of NetworkPlugin. Edit NetworkPlugin_types.go
                 to remove/update
               type: string
-            version:
-              type: string
-          required:
-          - type
-          - version
           type: object
         status:
           description: NetworkPluginStatus defines the observed state of NetworkPlugin
@@ -322,3 +563,270 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: matrix-leader-election-role
+  namespace: matrix-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: matrix-manager-role
+rules:
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - dns
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - dns/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - etcdclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - etcdclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - masters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - masters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - matrices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - matrices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - networkplugins
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - networkplugins/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: matrix-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: matrix-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: matrix-leader-election-rolebinding
+  namespace: matrix-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: matrix-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: matrix-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: matrix-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: matrix-manager-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: matrix-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: matrix-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: matrix-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: matrix-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: matrix-controller-manager-metrics-service
+  namespace: matrix-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: matrix-controller-manager
+  namespace: matrix-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: xwcheng/kubebuilder-kube-rbac-proxy:v0.5.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      - args:
+        - --metrics-addr=127.0.0.1:8080
+        - --enable-leader-election
+        command:
+        - /manager
+        image: xwcheng/matrix:latest
+        name: manager
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+      terminationGracePeriodSeconds: 10

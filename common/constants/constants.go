@@ -27,6 +27,9 @@ var (
 )
 
 const (
+	DefaultImageRegistry    = "docker.io"
+	DefaultImageProject     = "xwcheng"
+
 	DefaultEtcdStorageDir = "/data/etcd"
 	DefaultFinalizer      = "crd.cxw.com"
 )

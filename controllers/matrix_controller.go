@@ -79,17 +79,45 @@ func (r *MatrixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{}, nil
-
-	return ctrl.Result{}, nil
 }
 
 func (r *MatrixReconciler) createMatrix(matrixDeploy *MatrixDedploy, matrix *crdv1.Matrix) (ctrl.Result, error) {
+	matrix.Status.Phase = crdv1.MatrixInitializingPhase
+	err := r.Status().Update(matrixDeploy.Context, matrix)
+	if err != nil {
+		r.Log.Error(err, "update matirx status phase failure", "matirx", matrix.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	err = matrixDeploy.Create(matrix.Name, matrix.Namespace, &matrix.Spec)
+	if err != nil {
+		r.Log.Error(err, "create matirx failure", "matirx", matrix.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	matrix.Status.Phase = crdv1.MatrixReadyPhase
+	err = r.Status().Update(matrixDeploy.Context, matrix)
+	if err != nil {
+		r.Log.Error(err, "update matirx status phase failure", "matirx", matrix.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *MatrixReconciler) deleteMatrix(matrixDeploy *MatrixDedploy, matrix *crdv1.Matrix) (ctrl.Result, error) {
+	matrix.Status.Phase = crdv1.MatrixTeminatingPhase
+	err := r.Status().Update(matrixDeploy.Context, matrix)
+	if err != nil {
+		r.Log.Error(err, "update matirx status phase failure", "matirx", matrix.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
 
+	err = matrixDeploy.Delete(matrix.Name, matrix.Namespace)
+	if err != nil {
+		r.Log.Error(err, "create matirx failure", "matirx", matrix.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
 	return ctrl.Result{}, nil
 }
 

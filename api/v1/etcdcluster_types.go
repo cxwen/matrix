@@ -31,6 +31,7 @@ type EtcdClusterSpec struct {
 	// Foo is an example field of EtcdCluster. Edit EtcdCluster_types.go to remove/update
 	Version string `json:"version,omitempty"`
 	Replicas  int    `json:"replicas,omitempty"`
+	ImageRegistry string `json:"imageRegistry,omitempty"`
 	ImageRepo string `json:"imageRepo,omitempty"`
 	StorageClass string `json:"storageClass,omitempty"`
 	StorageSize string `json:"storageSize,omitempty"`
@@ -65,6 +66,11 @@ type EtcdCluster struct {
 }
 
 // +kubebuilder:object:root=true
+
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="=version"
+// +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="=pod replicas"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // EtcdClusterList contains a list of EtcdCluster
 type EtcdClusterList struct {

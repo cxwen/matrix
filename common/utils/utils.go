@@ -29,13 +29,17 @@ func Telnet(host string, port string) bool {
 	return success
 }
 
-func ParseTemplate(strtmpl string, obj interface{}) ([]byte, error) {
+func ParseTemplate(strtmpl string, obj ...interface{}) ([]byte, error) {
+	if obj == nil || len(obj) == 0 {
+		return []byte(strtmpl), nil
+	}
+
 	var buf bytes.Buffer
 	tmpl, err := template.New("template").Parse(strtmpl)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when parsing template")
 	}
-	err = tmpl.Execute(&buf, obj)
+	err = tmpl.Execute(&buf, obj[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "error when executing template")
 	}

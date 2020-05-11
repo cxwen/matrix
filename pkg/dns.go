@@ -20,13 +20,15 @@ import (
 
 type Dns interface {
 	Create(string, int, string, string, string) error
-	Delete(string, string, string) error
+	Delete(string, string, string, string) error
 }
 
 type DnsDedploy struct {
 	context.Context
 	client.Client
 	Log logr.Logger
+
+	MatrixClient client.Client
 }
 
 func (d *DnsDedploy) Create(dnsType string, replicas int, version string, imageRegistry string, imageRepo string) error {
@@ -43,7 +45,7 @@ func (d *DnsDedploy) Create(dnsType string, replicas int, version string, imageR
 	return nil
 }
 
-func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version string) error {
+func (d *DnsDedploy) Delete(dnsType string, imageRegistry string, imageRepo string, version string) error {
 	corednsDeploymentBytes, coreDNSConfigMapBytes, coreDNSServiceBytes, err := getCorednsYamlBytes(imageRegistry, imageRepo, version)
 	if err != nil {
 		return errors.Wrap(err, "get coredns yaml template failer")
@@ -54,7 +56,7 @@ func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version stri
 		return errors.Wrapf(err, "%s Deployment", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.Client.Delete(d.Context, coreDNSDeployment); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSDeployment); err != nil {
 		return err
 	}
 
@@ -63,7 +65,7 @@ func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version stri
 		return errors.Wrapf(err, "%s ConfigMap", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.Client.Delete(d.Context, coreDNSConfigMap); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSConfigMap); err != nil {
 		return err
 	}
 
@@ -72,7 +74,7 @@ func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version stri
 		return errors.Wrapf(err, "%s ClusterRole", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.Client.Delete(d.Context, coreDNSClusterRoles); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSClusterRoles); err != nil {
 		return err
 	}
 
@@ -81,7 +83,7 @@ func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version stri
 		return errors.Wrapf(err, "%s ClusterRoleBinding", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.Client.Delete(d.Context, coreDNSClusterRolesBinding); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSClusterRolesBinding); err != nil {
 		return err
 	}
 
@@ -90,7 +92,7 @@ func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version stri
 		return errors.Wrapf(err, "%s ServiceAccount", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.Client.Delete(d.Context, coreDNSServiceAccount); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSServiceAccount); err != nil {
 		return err
 	}
 
@@ -99,7 +101,7 @@ func (d *DnsDedploy) Delete(imageRegistry string, imageRepo string, version stri
 		return errors.Wrap(err, "unable to decode the DNS service")
 	}
 
-	if err := d.Client.Delete(d.Context, coreDNSService); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSService); err != nil {
 		return err
 	}
 
@@ -113,7 +115,7 @@ func (d *DnsDedploy) createCoreDNSAddon(deploymentBytes, serviceBytes, configByt
 	}
 
 	// Create the ConfigMap for CoreDNS or retain it in case it already exists
-	if err := CreateOrRetainConfigMap(d.Context, d.Client, coreDNSConfigMap); err != nil {
+	if err := CreateOrRetainConfigMap(d.Context, d.MatrixClient, coreDNSConfigMap); err != nil {
 		return err
 	}
 
@@ -123,7 +125,7 @@ func (d *DnsDedploy) createCoreDNSAddon(deploymentBytes, serviceBytes, configByt
 	}
 
 	// Create the Clusterroles for CoreDNS or update it in case it already exists
-	if err := CreateOrUpdateClusterRole(d.Context, d.Client, coreDNSClusterRoles); err != nil {
+	if err := CreateOrUpdateClusterRole(d.Context, d.MatrixClient, coreDNSClusterRoles); err != nil {
 		return err
 	}
 
@@ -133,7 +135,7 @@ func (d *DnsDedploy) createCoreDNSAddon(deploymentBytes, serviceBytes, configByt
 	}
 
 	// Create the Clusterrolebindings for CoreDNS or update it in case it already exists
-	if err := CreateOrUpdateClusterRoleBinding(d.Context, d.Client, coreDNSClusterRolesBinding); err != nil {
+	if err := CreateOrUpdateClusterRoleBinding(d.Context, d.MatrixClient, coreDNSClusterRolesBinding); err != nil {
 		return err
 	}
 
@@ -143,7 +145,7 @@ func (d *DnsDedploy) createCoreDNSAddon(deploymentBytes, serviceBytes, configByt
 	}
 
 	// Create the ConfigMap for CoreDNS or update it in case it already exists
-	if err := CreateOrUpdateServiceAccount(d.Context, d.Client, coreDNSServiceAccount); err != nil {
+	if err := CreateOrUpdateServiceAccount(d.Context, d.MatrixClient, coreDNSServiceAccount); err != nil {
 		return err
 	}
 
@@ -153,7 +155,7 @@ func (d *DnsDedploy) createCoreDNSAddon(deploymentBytes, serviceBytes, configByt
 	}
 
 	// Create the Deployment for CoreDNS or update it in case it already exists
-	if err := CreateOrUpdateDeployment(d.Context, d.Client, coreDNSDeployment); err != nil {
+	if err := CreateOrUpdateDeployment(d.Context, d.MatrixClient, coreDNSDeployment); err != nil {
 		return err
 	}
 
@@ -162,7 +164,7 @@ func (d *DnsDedploy) createCoreDNSAddon(deploymentBytes, serviceBytes, configByt
 		return errors.Wrap(err, "unable to decode the DNS service")
 	}
 
-	return createDNSService(d.Context, d.Client, coreDNSService)
+	return createDNSService(d.Context, d.MatrixClient, coreDNSService)
 }
 
 func GetDNSIP(svcSubnet string) (net.IP, error) {

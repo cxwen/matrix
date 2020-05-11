@@ -36,14 +36,28 @@ type DnsSpec struct {
 	ImageRepo string `json:"imageRepo,omitempty"`
 }
 
+type DnsPhase string
+
+const (
+	DnsInitializingPhase DnsPhase = "Initializing"
+	DnsRunningPhase      DnsPhase = "Running"
+	DnsTeminatingPhase   DnsPhase = "Teminating"
+)
+
 // DnsStatus defines the observed state of Dns
 type DnsStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Phase string `json:"phase,omitempty"`
+	Phase DnsPhase `json:"phase,omitempty"`
 }
 
 // +kubebuilder:object:root=true
+
+// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="dns type"
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="dns version"
+// +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="dns pod replicas"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="the phase of dns"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Dns is the Schema for the dns API
 type Dns struct {

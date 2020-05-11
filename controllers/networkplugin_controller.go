@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/cxwen/matrix/common/constants"
+	. "github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
 
 	"github.com/go-logr/logr"
@@ -52,21 +54,22 @@ func (r *NetworkPluginReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	matrixDeploy := NetworkPluginDedploy{
+	networkpluginDeploy := NetworkPluginDedploy{
 		Context: ctx,
 		Client: r.Client,
 		Log: r.Log,
+		MatrixClient: MatrixClient[networkplugin.Name],
 	}
 
 	networkpluginFinalizer := constants.DefaultFinalizer
 	if networkplugin.ObjectMeta.DeletionTimestamp.IsZero() {
 		if ! containsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
 			networkplugin.ObjectMeta.Finalizers = append(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer)
-			return r.createNetworkPlugin(&matrixDeploy, &networkplugin)
+			return r.createNetworkPlugin(&networkpluginDeploy, &networkplugin)
 		}
 	} else {
 		if containsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
-			result, err := r.deleteNetworkPlugin(&matrixDeploy, &networkplugin)
+			result, err := r.deleteNetworkPlugin(&networkpluginDeploy, &networkplugin)
 			if err != nil {
 				return result, err
 			}
@@ -79,16 +82,65 @@ func (r *NetworkPluginReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	return ctrl.Result{}, nil
-
-	return ctrl.Result{}, nil
 }
 
 func (r *NetworkPluginReconciler) createNetworkPlugin(networkPluginDeploy *NetworkPluginDedploy, networkPlugin *crdv1.NetworkPlugin) (ctrl.Result, error) {
+	networkPluginType := networkPlugin.Spec.Type
+
+	networkPlugin.Status.Phase = crdv1.NetworkPluginInitializingPhase
+	err := r.Status().Update(networkPluginDeploy.Context, networkPlugin)
+	if err != nil {
+		r.Log.Error(err, "update dns status phase failure before create", "network plugin", networkPlugin.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	switch networkPluginType {
+	case "calico":
+		if networkPlugin.Spec.Calico == nil {
+			if err != nil {
+				return ctrl.Result{Requeue:false}, fmt.Errorf("calico config is null")
+			}
+		}
+
+		err = networkPluginDeploy.CreateCalico(networkPlugin.Spec.Calico)
+		if err != nil {
+			return ctrl.Result{Requeue:true}, err
+		}
+	}
+
+	networkPlugin.Status.Phase = crdv1.NetworkPluginRunningPhase
+	err = r.Status().Update(networkPluginDeploy.Context, networkPlugin)
+	if err != nil {
+		r.Log.Error(err, "update dns status phase failure after create", "network plugin", networkPlugin.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *NetworkPluginReconciler) deleteNetworkPlugin(networkPluginDeploy *NetworkPluginDedploy, networkPlugin *crdv1.NetworkPlugin) (ctrl.Result, error) {
+	networkPluginType := networkPlugin.Spec.Type
+
+	networkPlugin.Status.Phase = crdv1.NetworkPluginTeminatingPhase
+	err := r.Status().Update(networkPluginDeploy.Context, networkPlugin)
+	if err != nil {
+		r.Log.Error(err, "update dns status phase failure before delete", "network plugin", networkPlugin.Name)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	switch networkPluginType {
+	case "calico":
+		if networkPlugin.Spec.Calico == nil {
+			if err != nil {
+				return ctrl.Result{Requeue:false}, fmt.Errorf("calico config is null")
+			}
+		}
+
+		err = networkPluginDeploy.DeleteCalico(networkPlugin.Spec.Calico)
+		if err != nil {
+			return ctrl.Result{Requeue:true}, err
+		}
+	}
 
 	return ctrl.Result{}, nil
 }

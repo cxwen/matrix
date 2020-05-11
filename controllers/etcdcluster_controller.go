@@ -105,14 +105,14 @@ func (r *EtcdClusterReconciler) createEtcdCluster(etcdDeploy *EctdDeploy, etcdCl
 	}
 
 	replicas := etcdCluster.Spec.Replicas
-	image := fmt.Sprintf("%s:%s",etcdCluster.Spec.ImageRepo, etcdCluster.Spec.Version)
+	image := fmt.Sprintf("%s/%s:%s",etcdCluster.Spec.ImageRegistry, etcdCluster.Spec.ImageRepo, etcdCluster.Spec.Version)
 	datadir := ""
 	if etcdCluster.Spec.StorageClass == "local" {
 		datadir = etcdCluster.Spec.StorageDir
 	}
 
 	if datadir == "" {
-		datadir = constants.DefaultEtcdStorageDir
+		datadir = constants.DefaultEtcdStorageDir + "/" + etcdCluster.Name
 	}
 
 	err = etcdDeploy.CreateEtcdStatefulSet(etcdClusterName, namespace, replicas, image, datadir)

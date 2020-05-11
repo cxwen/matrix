@@ -34,7 +34,7 @@ type MasterSpec struct {
 	ImageRegistry string    `json:"imageRegistry,omitempty"`
 	ImageRepo     ImageRepo `json:"imageRegistry,omitempty"`
 	EtcdCluster   string    `json:"etcdCluster,omitempty"`
-	Expose        Expose    `json:"expose,omitempty"`
+	Expose        Expose    `json:"expose"`
 }
 
 type ImageRepo struct {
@@ -45,8 +45,8 @@ type ImageRepo struct {
 }
 
 type Expose struct {
-	Type string   `json:"type,omitempty"`
-	Node []string `json:"type,omitempty"`
+	Type string   `json:"type"`
+	Node []string `json:"node"`
 }
 
 type MasterPhase string
@@ -67,6 +67,14 @@ type MasterStatus struct {
 }
 
 // +kubebuilder:object:root=true
+
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="version"
+// +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="pod replicas"
+// +kubebuilder:printcolumn:name="ETCD",type="string",JSONPath=".spec.etcdCluster",description="etcdcluster name"
+// +kubebuilder:printcolumn:name="EXPOSETYPE",type="string",JSONPath=".spec.expose.type.",description="expose type"
+// +kubebuilder:printcolumn:name="EXPOSEURL",type="string",JSONPath=".status.exposeUrl",description="expose url"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Master is the Schema for the masters API
 type Master struct {

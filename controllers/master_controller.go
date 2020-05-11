@@ -83,13 +83,13 @@ func (r *MasterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 }
 
 func (r *MasterReconciler) createMaster(masterDeploy *MasterDedploy, master *crdv1.Master) (ctrl.Result, error) {
-	var name = master.Name
-	var namespace = master.Namespace
-	var version = master.Spec.Version
-	var replicas = master.Spec.Replicas
-	var imageRegistry = master.Spec.ImageRegistry
-	var imageRepo = &master.Spec.ImageRepo
-	var etcdCluster = master.Spec.EtcdCluster
+	name := master.Name
+	namespace := master.Namespace
+	version := master.Spec.Version
+	replicas := master.Spec.Replicas
+	imageRegistry := master.Spec.ImageRegistry
+	imageRepo := &master.Spec.ImageRepo
+	etcdCluster := master.Spec.EtcdCluster
 
 	master.Status.Phase = crdv1.MasterInitializingPhase
 	err := r.Status().Update(masterDeploy.Context, master)
@@ -125,6 +125,12 @@ func (r *MasterReconciler) createMaster(masterDeploy *MasterDedploy, master *crd
 	err = masterDeploy.CheckMasterRunning(name, namespace)
 	if err != nil {
 		r.Log.Error(err, "check master deployment failure", "name", name, "namespace", namespace)
+		return ctrl.Result{Requeue:true}, err
+	}
+
+	err = masterDeploy.MasterInit(version, imageRegistry, imageRepo)
+	if err != nil {
+		r.Log.Error(err, "init matrix cluster failure", "name", name, "namespace", namespace)
 		return ctrl.Result{Requeue:true}, err
 	}
 
