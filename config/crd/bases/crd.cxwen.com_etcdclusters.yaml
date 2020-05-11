@@ -8,6 +8,22 @@ metadata:
   creationTimestamp: null
   name: etcdclusters.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.version
+    description: =version
+    name: VERSION
+    type: string
+  - JSONPath: .spec.replicas
+    description: =pod replicas
+    name: REPLICAS
+    type: string
+  - JSONPath: .status.phase
+    description: phase
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: EtcdCluster
@@ -15,6 +31,8 @@ spec:
     plural: etcdclusters
     singular: etcdcluster
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: EtcdCluster is the Schema for the etcdclusters API

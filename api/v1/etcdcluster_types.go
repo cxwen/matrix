@@ -55,7 +55,11 @@ type EtcdClusterStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="=version"
+// +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="=pod replicas"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // EtcdCluster is the Schema for the etcdclusters API
 type EtcdCluster struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -66,11 +70,6 @@ type EtcdCluster struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="=version"
-// +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="=pod replicas"
-// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
-// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // EtcdClusterList contains a list of EtcdCluster
 type EtcdClusterList struct {
