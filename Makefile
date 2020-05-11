@@ -28,6 +28,9 @@ run: generate fmt vet manifests
 # Install CRDs into a cluster
 install: manifests
 	kustomize build config/crd -o config/crd.yaml
+	kustomize build config/default > config/crd.yaml
+	sed -i 's#gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0#xwcheng/kubebuilder-kube-rbac-proxy:v0.5.0#g' config/crd.yaml
+	sed -i 's#controller:latest#xwcheng/matrix:latest#g' config/crd.yaml
 
 # Uninstall CRDs from a cluster
 uninstall: manifests
