@@ -1,10 +1,30 @@
 # matrix
 
-将kubernetes集群的master、etcd组件运行在已有的kubernetes集群中
+将kubernetes集群的master、etcd组件运行在已有的kubernetes集群中，有效节省机器资源，并充分发挥master节点空闲的资源作用
+
+# 特点
+
+- 使用方便：全CRD实现，一个yaml文件搞定部署
+
+- 屏蔽kubernetes底层复杂部署操作，基于已有集群快速建设新集群
+
+- 节省机器资源：多个集群共用同一个母集群，除母集群外，其它集群都不需要再单独使用机器部署master节点 
+
+- 维护简单：只需维护母集群高可用架构，可以充分利用Kubernetes自愈性来实现子集群的高可用
+ 
+# 使用场景
+
+对于需要建设多个k8s集群的需求，可以有效的节省机器资源
+
+例如：
+
+有A、B、C三个项目组分别需要使用：3 master + 3 node 的高可用集群，一共需要18台机器。
+
+采用matrix方案：母集群3台(构建高可用) + A、B、C项目组各3台，一共12台。
 
 # 架构
 
-![](./matrix.jpg)
+![](./matrix.png)
 
 # 快速开始
 
@@ -48,5 +68,6 @@ kubectl get ns --kubeconfig=admin.conf
 
 ### 加入node
 
-
-
+```shell
+kubeadm token create --print-join-command --kubeconfig=admin.conf
+```
