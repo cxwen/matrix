@@ -29,31 +29,32 @@ type MasterSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Master. Edit Master_types.go to remove/update
-	Version       string    `json:"version,omitempty"`
-	Replicas      int       `json:"replicas,omitempty"`
-	ImageRegistry string    `json:"imageRegistry,omitempty"`
-	ImageRepo     ImageRepo `json:"imageRegistry,omitempty"`
-	EtcdCluster   string    `json:"etcdCluster,omitempty"`
-	Expose        Expose    `json:"expose"`
+	Version       string     `json:"version,omitempty"`
+	Replicas      int        `json:"replicas,omitempty"`
+	ImageRegistry string     `json:"imageRegistry,omitempty"`
+	ImageRepo     *ImageRepo `json:"imageRepo,omitempty"`
+	EtcdCluster   string     `json:"etcdCluster,omitempty"`
+	Expose        *Expose    `json:"expose"`
 }
 
 type ImageRepo struct {
 	Apiserver         string `json:"apiserver,omitempty"`
 	ControllerManager string `json:"controllerManager,omitempty"`
 	Scheduler         string `json:"scheduler,omitempty"`
-	Proxy             string `json:"scheduler,omitempty"`
+	Proxy             string `json:"proxy,omitempty"`
 }
 
 type Expose struct {
-	Type string   `json:"type"`
+	Method string `json:"method"`
 	Node []string `json:"node"`
+	Port string   `json:"port"`
 }
 
 type MasterPhase string
 
 const (
 	MasterInitializingPhase MasterPhase = "Initializing"
-	MasterRunningPhase      MasterPhase = "Running"
+	MasterReadyPhase        MasterPhase = "Ready"
 	MasterTeminatingPhase   MasterPhase = "Teminating"
 )
 
@@ -63,7 +64,7 @@ type MasterStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	Phase MasterPhase `json:"phase,omitempty"`
 	ExposeUrl []string `json:"exposeUrl,omitempty"`
-	AdminKubeconfig string `json:"phase,omitempty"`
+	AdminKubeconfig string `json:"adminKubeconfig,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -71,8 +72,9 @@ type MasterStatus struct {
 // +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.version",description="version"
 // +kubebuilder:printcolumn:name="REPLICAS",type="string",JSONPath=".spec.replicas",description="pod replicas"
 // +kubebuilder:printcolumn:name="ETCD",type="string",JSONPath=".spec.etcdCluster",description="etcdcluster name"
-// +kubebuilder:printcolumn:name="EXPOSETYPE",type="string",JSONPath=".spec.expose.type.",description="expose type"
-// +kubebuilder:printcolumn:name="EXPOSEURL",type="string",JSONPath=".status.exposeUrl",description="expose url"
+// +kubebuilder:printcolumn:name="EXPOSETYPE",type="string",JSONPath=".spec.expose.method",description="expose type"
+// +kubebuilder:printcolumn:name="EXPOSENODE",type="string",JSONPath=".spec.expose.node",description="expose node"
+// +kubebuilder:printcolumn:name="EXPOSEPORT",type="string",JSONPath=".spec.expose.port",description="expose port"
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 

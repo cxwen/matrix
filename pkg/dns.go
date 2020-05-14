@@ -65,7 +65,7 @@ func (d *DnsDedploy) Delete(dnsType string, imageRegistry string, imageRepo stri
 		return errors.Wrapf(err, "%s ConfigMap", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.MatrixClient.Delete(d.Context, coreDNSConfigMap); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSConfigMap); IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -74,7 +74,7 @@ func (d *DnsDedploy) Delete(dnsType string, imageRegistry string, imageRepo stri
 		return errors.Wrapf(err, "%s ClusterRole", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.MatrixClient.Delete(d.Context, coreDNSClusterRoles); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSClusterRoles); IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -83,7 +83,7 @@ func (d *DnsDedploy) Delete(dnsType string, imageRegistry string, imageRepo stri
 		return errors.Wrapf(err, "%s ClusterRoleBinding", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.MatrixClient.Delete(d.Context, coreDNSClusterRolesBinding); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSClusterRolesBinding); IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -92,7 +92,7 @@ func (d *DnsDedploy) Delete(dnsType string, imageRegistry string, imageRepo stri
 		return errors.Wrapf(err, "%s ServiceAccount", constants.UnableToDecodeCoreDNS)
 	}
 
-	if err := d.MatrixClient.Delete(d.Context, coreDNSServiceAccount); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSServiceAccount); IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -101,7 +101,7 @@ func (d *DnsDedploy) Delete(dnsType string, imageRegistry string, imageRepo stri
 		return errors.Wrap(err, "unable to decode the DNS service")
 	}
 
-	if err := d.MatrixClient.Delete(d.Context, coreDNSService); err != nil {
+	if err := d.MatrixClient.Delete(d.Context, coreDNSService); IgnoreNotFound(err) != nil {
 		return err
 	}
 

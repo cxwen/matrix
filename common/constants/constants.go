@@ -32,4 +32,5 @@ const (
 
 	DefaultEtcdStorageDir = "/data/etcd"
 	DefaultFinalizer      = "crd.cxw.com"
+	DefaultAdminKubeconfigPath = "/data/matrix"
 )

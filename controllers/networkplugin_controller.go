@@ -39,6 +39,11 @@ type NetworkPluginReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=networkplugins,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",resources=deployments;daemonsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="extensions",resources=deployments;daemonsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=networkplugins/status,verbs=get;update;patch
 
 func (r *NetworkPluginReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -50,32 +55,51 @@ func (r *NetworkPluginReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	var err error
 	if err = r.Get(ctx, req.NamespacedName, &networkplugin); err != nil {
-		log.Error(err, "unable to fetch networkplugin")
-		return ctrl.Result{}, ignoreNotFound(err)
+		if IgnoreNotFound(err) != nil {
+			log.Error(err, "unable to fetch networkplugin")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	clientName := fmt.Sprintf("%s-km",networkplugin.Name)
+	err = InitMatrixClient(r.Client, ctx, clientName, networkplugin.Namespace)
+	if err != nil {
+		r.Log.Error(err, "init matrix client failure", "name", networkplugin.Name, "namespace", networkplugin.Namespace)
+		return ctrl.Result{}, err
 	}
 
 	networkpluginDeploy := NetworkPluginDedploy{
 		Context: ctx,
 		Client: r.Client,
 		Log: r.Log,
-		MatrixClient: MatrixClient[networkplugin.Name],
+		MatrixClient: MatrixClient[clientName],
+	}
+
+	if networkpluginDeploy.MatrixClient == nil {
+		return ctrl.Result{}, fmt.Errorf("matrix client is nil")
 	}
 
 	networkpluginFinalizer := constants.DefaultFinalizer
 	if networkplugin.ObjectMeta.DeletionTimestamp.IsZero() {
-		if ! containsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
+		if ! ContainsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
 			networkplugin.ObjectMeta.Finalizers = append(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer)
+			if err = r.Update(ctx, &networkplugin); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return r.createNetworkPlugin(&networkpluginDeploy, &networkplugin)
 		}
 	} else {
-		if containsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
-			result, err := r.deleteNetworkPlugin(&networkpluginDeploy, &networkplugin)
-			if err != nil {
-				return result, err
-			}
+		if ContainsString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer) {
+			//result, err := r.deleteNetworkPlugin(&networkpluginDeploy, &networkplugin)
+			//if err != nil {
+			//	return result, err
+			//}
 
-			networkplugin.ObjectMeta.Finalizers = removeString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer)
-			if err = r.Update(context.Background(), &networkplugin); err != nil {
+			networkplugin.ObjectMeta.Finalizers = RemoveString(networkplugin.ObjectMeta.Finalizers, networkpluginFinalizer)
+			if err = r.Update(ctx, &networkplugin); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -91,56 +115,54 @@ func (r *NetworkPluginReconciler) createNetworkPlugin(networkPluginDeploy *Netwo
 	err := r.Status().Update(networkPluginDeploy.Context, networkPlugin)
 	if err != nil {
 		r.Log.Error(err, "update dns status phase failure before create", "network plugin", networkPlugin.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	switch networkPluginType {
 	case "calico":
 		if networkPlugin.Spec.Calico == nil {
-			if err != nil {
-				return ctrl.Result{Requeue:false}, fmt.Errorf("calico config is null")
-			}
+			return ctrl.Result{}, fmt.Errorf("calico config is null")
 		}
 
 		err = networkPluginDeploy.CreateCalico(networkPlugin.Spec.Calico)
 		if err != nil {
-			return ctrl.Result{Requeue:true}, err
+			return ctrl.Result{}, err
 		}
 	}
 
-	networkPlugin.Status.Phase = crdv1.NetworkPluginRunningPhase
+	networkPlugin.Status.Phase = crdv1.NetworkPluginReadyPhase
 	err = r.Status().Update(networkPluginDeploy.Context, networkPlugin)
 	if err != nil {
 		r.Log.Error(err, "update dns status phase failure after create", "network plugin", networkPlugin.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *NetworkPluginReconciler) deleteNetworkPlugin(networkPluginDeploy *NetworkPluginDedploy, networkPlugin *crdv1.NetworkPlugin) (ctrl.Result, error) {
-	networkPluginType := networkPlugin.Spec.Type
+	//networkPluginType := networkPlugin.Spec.Type
 
 	networkPlugin.Status.Phase = crdv1.NetworkPluginTeminatingPhase
 	err := r.Status().Update(networkPluginDeploy.Context, networkPlugin)
 	if err != nil {
 		r.Log.Error(err, "update dns status phase failure before delete", "network plugin", networkPlugin.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
-	switch networkPluginType {
-	case "calico":
-		if networkPlugin.Spec.Calico == nil {
-			if err != nil {
-				return ctrl.Result{Requeue:false}, fmt.Errorf("calico config is null")
-			}
-		}
-
-		err = networkPluginDeploy.DeleteCalico(networkPlugin.Spec.Calico)
-		if err != nil {
-			return ctrl.Result{Requeue:true}, err
-		}
-	}
+	//switch networkPluginType {
+	//case "calico":
+	//	if networkPlugin.Spec.Calico == nil {
+	//		if err != nil {
+	//			return ctrl.Result{Requeue:false}, fmt.Errorf("calico config is null")
+	//		}
+	//	}
+	//
+	//	err = networkPluginDeploy.DeleteCalico(networkPlugin.Spec.Calico)
+	//	if err != nil {
+	//		return ctrl.Result{}, err
+	//	}
+	//}
 
 	return ctrl.Result{}, nil
 }

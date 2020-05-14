@@ -1,11 +1,11 @@
-package controllers
+package utils
 
 import (
 	"github.com/wonderivan/logger"
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-func ignoreNotFound(err error) error {
+func IgnoreNotFound(err error) error {
 	if errors.IsNotFound(err) {
 		logger.Info(err)
 		return nil
@@ -13,7 +13,7 @@ func ignoreNotFound(err error) error {
 	return err
 }
 
-func ignoreAlreadyExist(err error) error {
+func IgnoreAlreadyExist(err error) error {
 	if errors.IsAlreadyExists(err) {
 		logger.Info(err)
 		return nil
@@ -21,7 +21,7 @@ func ignoreAlreadyExist(err error) error {
 	return err
 }
 
-func containsString(slice []string, s string) bool {
+func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
 			return true
@@ -30,7 +30,7 @@ func containsString(slice []string, s string) bool {
 	return false
 }
 
-func removeString(slice []string, s string) (result []string) {
+func RemoveString(slice []string, s string) (result []string) {
 	for _, item := range slice {
 		if item == s {
 			continue

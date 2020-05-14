@@ -8,6 +8,34 @@ metadata:
   creationTimestamp: null
   name: networkplugins.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.type
+    description: type
+    name: TYPE
+    type: string
+  - JSONPath: .spec.calico.version
+    description: dns version
+    name: VERSION
+    type: string
+  - JSONPath: .spec.calico.ipAutodetectionMethod
+    description: ipAutodetectionMethod
+    name: IPAUTODETECTIONMETHOD
+    type: string
+  - JSONPath: .spec.calico.ipv4poolIpip
+    description: Ipv4poolIpip
+    name: IPV4POOLIPIP
+    type: string
+  - JSONPath: .spec.calico.ipv4poolCidr
+    description: Ipv4poolCidr
+    name: IPV4POOLCIDR
+    type: string
+  - JSONPath: .status.phase
+    description: phase
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: NetworkPlugin
@@ -15,6 +43,8 @@ spec:
     plural: networkplugins
     singular: networkplugin
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: NetworkPlugin is the Schema for the networkplugins API
@@ -36,6 +66,8 @@ spec:
           properties:
             calico:
               properties:
+                flexvolDriverImageRepo:
+                  type: string
                 imageRegistry:
                   type: string
                 installCniImageRepo:

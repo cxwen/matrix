@@ -5,8 +5,8 @@ import (
 	"os/exec"
 )
 
-func ExecCmd(cmdStr string) (string, error) {
-	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+func ExecCmd(shell string, cmdStr string) (string, error) {
+	cmd := exec.Command(shell, "-c", cmdStr)
 	var out bytes.Buffer
 
 	cmd.Stdout = &out

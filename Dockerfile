@@ -21,10 +21,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod vendor -a
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM xwcheng/static:nonroot
+FROM xwcheng/busybox:1.28.3
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY bin/kubeadm /usr/bin/
-USER nonroot:nonroot
 
 ENTRYPOINT ["/manager"]

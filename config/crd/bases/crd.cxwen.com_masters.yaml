@@ -21,13 +21,17 @@ spec:
     description: etcdcluster name
     name: ETCD
     type: string
-  - JSONPath: .spec.expose.type.
+  - JSONPath: .spec.expose.method
     description: expose type
     name: EXPOSETYPE
     type: string
-  - JSONPath: .status.exposeUrl
-    description: expose url
-    name: EXPOSEURL
+  - JSONPath: .spec.expose.node
+    description: expose node
+    name: EXPOSENODE
+    type: string
+  - JSONPath: .spec.expose.port
+    description: expose port
+    name: EXPOSEPORT
     type: string
   - JSONPath: .status.phase
     description: phase
@@ -68,21 +72,28 @@ spec:
               type: string
             expose:
               properties:
+                method:
+                  type: string
                 node:
                   items:
                     type: string
                   type: array
-                type:
+                port:
                   type: string
               required:
+              - method
               - node
-              - type
+              - port
               type: object
             imageRegistry:
+              type: string
+            imageRepo:
               properties:
                 apiserver:
                   type: string
                 controllerManager:
+                  type: string
+                proxy:
                   type: string
                 scheduler:
                   type: string
@@ -99,11 +110,16 @@ spec:
         status:
           description: MasterStatus defines the observed state of Master
           properties:
+            adminKubeconfig:
+              type: string
             exposeUrl:
               items:
                 type: string
               type: array
             phase:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
               type: string
           type: object
       type: object

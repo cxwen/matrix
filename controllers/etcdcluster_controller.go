@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +38,8 @@ type EtcdClusterReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=etcdclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=etcdclusters/status,verbs=get;update;patch
 
 func (r *EtcdClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -48,8 +51,12 @@ func (r *EtcdClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 	var err error
 	if err = r.Get(ctx, req.NamespacedName, &etcdCluster); err != nil {
-		log.Error(err, "unable to fetch etcdcluster")
-		return ctrl.Result{}, ignoreNotFound(err)
+		if utils.IgnoreNotFound(err) != nil {
+			log.Error(err, "unable to fetch etcdcluster")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	etcdDeploy := EctdDeploy{
@@ -60,19 +67,23 @@ func (r *EtcdClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 	etcdClusterFinalizer := constants.DefaultFinalizer
 	if etcdCluster.ObjectMeta.DeletionTimestamp.IsZero() {
-		if ! containsString(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer) {
+		if ! utils.ContainsString(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer) {
 			etcdCluster.ObjectMeta.Finalizers = append(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer)
+			if err := r.Update(ctx, &etcdCluster); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return r.createEtcdCluster(&etcdDeploy, &etcdCluster)
 		}
 	} else {
-		if containsString(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer) {
+		if utils.ContainsString(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer) {
 			result, err := r.deleteEtcdCluster(&etcdDeploy, &etcdCluster)
 			if err != nil {
 				return result, err
 			}
 
-			etcdCluster.ObjectMeta.Finalizers = removeString(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer)
-			if err = r.Update(context.Background(), &etcdCluster); err != nil {
+			etcdCluster.ObjectMeta.Finalizers = utils.RemoveString(etcdCluster.ObjectMeta.Finalizers, etcdClusterFinalizer)
+			if err = r.Update(ctx, &etcdCluster); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -89,19 +100,19 @@ func (r *EtcdClusterReconciler) createEtcdCluster(etcdDeploy *EctdDeploy, etcdCl
 	err = r.Status().Update(etcdDeploy.Context, etcdCluster)
 	if err != nil {
 		r.Log.Error(err, "update etcdcluster status phase failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
-	}
-
-	err = etcdDeploy.CreateEtcdCerts(etcdClusterName, namespace)
-	if err != nil {
-		r.Log.Error(err, "create certs failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = etcdDeploy.CreateService(etcdClusterName, namespace)
 	if err != nil {
 		r.Log.Error(err, "create etcdcluster service failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
+	}
+
+	err = etcdDeploy.CreateEtcdCerts(etcdClusterName, namespace)
+	if err != nil {
+		r.Log.Error(err, "create certs failure", "etcdcluster", etcdCluster.Name)
+		return ctrl.Result{}, err
 	}
 
 	replicas := etcdCluster.Spec.Replicas
@@ -118,26 +129,28 @@ func (r *EtcdClusterReconciler) createEtcdCluster(etcdDeploy *EctdDeploy, etcdCl
 	err = etcdDeploy.CreateEtcdStatefulSet(etcdClusterName, namespace, replicas, image, datadir)
 	if err != nil {
 		r.Log.Error(err, "create etcdcluster statefulset failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	etcdCluster.Status.Phase = crdv1.EtcdInitializingPhase
 	err = r.Status().Update(etcdDeploy.Context, etcdCluster)
 	if err != nil {
 		r.Log.Error(err, "update etcdcluster status phase failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	// waiting for etcd ready
 	if err := etcdDeploy.CheckEtcdReady(etcdClusterName, namespace, etcdCluster.Spec.Replicas); err != nil {
-		return ctrl.Result{Requeue:true}, err
+		r.Log.Error(err, "etcdcluster check ready failure", "name", etcdClusterName)
+		return ctrl.Result{}, err
 	}
+	r.Log.Info("etcdcluster is ready", "name", etcdClusterName)
 
 	etcdCluster.Status.Phase = crdv1.EtcdReadyPhase
 	err = r.Status().Update(etcdDeploy.Context, etcdCluster)
 	if err != nil {
 		r.Log.Error(err, "update etcdcluster status phase failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -151,13 +164,13 @@ func (r *EtcdClusterReconciler) deleteEtcdCluster(etcdDeploy *EctdDeploy, etcdCl
 	err = r.Status().Update(etcdDeploy.Context, etcdCluster)
 	if err != nil {
 		r.Log.Error(err, "update etcdcluster status phase failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = etcdDeploy.DeleteEtcd(etcdClusterName, namespace)
 	if err != nil {
 		r.Log.Error(err, "delete etcd failure", "etcdcluster", etcdCluster.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

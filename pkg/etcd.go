@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
@@ -67,9 +68,14 @@ func (e *EctdDeploy) CreateService(etcdClusterName string, namespace string) err
 
 	err := e.Client.Create(e.Context, &headLessService)
 	if err != nil {
-		e.Log.Error(err, "create etcd headless service failure", "etcdCluster", etcdClusterName)
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			e.Log.Info("etcd headless service is already exist", "etcdCluster", etcdClusterName)
+		} else {
+			e.Log.Error(err, "create etcd headless service failure", "etcdCluster", etcdClusterName)
+			return err
+		}
 	}
+	e.Log.Info("etcd headless service success", "name", headLessService.Name, "namespace", namespace)
 
 	clientService := corev1.Service{
 		TypeMeta: constants.ServiceTypemeta,
@@ -99,9 +105,14 @@ func (e *EctdDeploy) CreateService(etcdClusterName string, namespace string) err
 
 	err = e.Client.Create(e.Context, &clientService)
 	if err != nil {
-		e.Log.Error(err, "create etcd client service failure", "etcdCluster", etcdClusterName)
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			e.Log.Info("etcd client service is already exist", "etcdCluster", etcdClusterName)
+		} else {
+			e.Log.Error(err, "create etcd client service failure", "etcdCluster", etcdClusterName)
+			return err
+		}
 	}
+	e.Log.Info("etcd client service success", "name", headLessService.Name, "namespace", namespace)
 
 	return nil
 }
@@ -202,8 +213,14 @@ func (e *EctdDeploy) CreateEtcdCerts(etcdClusterName string, namespace string) e
 
 	err = e.Client.Create(e.Context, &etcdCertsConfigmap)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			e.Log.Info("etcd certs configmap is already exist", "etcdCluster", etcdClusterName)
+		} else {
+			e.Log.Error(err, "create etcd certs configmap failure", "etcdCluster", etcdClusterName)
+			return err
+		}
 	}
+	e.Log.Info("etcd certs configmap create success", "name", etcdCertsConfigmap.Name, "namespace", namespace)
 
 	return nil
 }
@@ -345,8 +362,14 @@ func (e *EctdDeploy) CreateEtcdStatefulSet(etcdClusterName string, namespace str
 
 	err := e.Client.Create(e.Context, &statefulSet)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			e.Log.Info("etcd statefulset is already exist", "etcdCluster", etcdClusterName)
+		} else {
+			e.Log.Error(err, "create etcd statefulset failure", "etcdCluster", etcdClusterName)
+			return err
+		}
 	}
+	e.Log.Info("etcd statefulset create success", "name", statefulSet.Name, "namespace", namespace)
 
 	return nil
 }
@@ -356,32 +379,32 @@ func (e *EctdDeploy) CheckEtcdReady(etcdClusterName string, namespace string, re
 	var err error
 	wg.Add(1)
 	go func(wg *sync.WaitGroup, err *error, etcdClusterName string, namespace string, replicas int) {
-		timeout := time.After(time.Minute * 5)
-
+		timeout := time.After(time.Minute * 3)
+		defer wg.Done()
 		for {
 			select {
 			case <-timeout:
 				errNew := fmt.Errorf("check etcd ready timeout")
 				err = &errNew
-				break
+				return
 			default:
 				ready := true
 				for i:=0;i<replicas;i++ {
 					domain := fmt.Sprintf("%s-%d.%s.%s", etcdClusterName, i, etcdClusterName, namespace)
-					if ! Telnet(domain, "2379") {
+					telnetResult := Telnet(domain, "2379")
+					e.Log.Info("check etcdcluster 2379 port", "domain", domain, "telnet result", telnetResult)
+					if ! telnetResult {
 						ready = false
 					}
 				}
 
 				if ready {
-					break
+					return
 				}
 
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 5)
 			}
 		}
-
-		wg.Done()
 	}(&wg, &err, etcdClusterName, namespace, replicas)
 
 	wg.Wait()
@@ -403,8 +426,8 @@ func (e *EctdDeploy) DeleteEtcd(etcdClusterName string, namespace string) error 
 		},
 	}
 
-	err := e.Client.Create(e.Context, &statefulSet)
-	if err != nil {
+	err := e.Client.Delete(e.Context, &statefulSet)
+	if IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -416,8 +439,8 @@ func (e *EctdDeploy) DeleteEtcd(etcdClusterName string, namespace string) error 
 			Namespace: namespace,
 		},
 	}
-	err = e.Client.Create(e.Context, &configmap)
-	if err != nil {
+	err = e.Client.Delete(e.Context, &configmap)
+	if IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -431,7 +454,7 @@ func (e *EctdDeploy) DeleteEtcd(etcdClusterName string, namespace string) error 
 	}
 
 	err = e.Client.Delete(e.Context, &headLessService)
-	if err != nil {
+	if IgnoreNotFound(err) != nil {
 		e.Log.Error(err, "delete etcd headless service failure", "etcdCluster", etcdClusterName)
 		return err
 	}
@@ -445,7 +468,7 @@ func (e *EctdDeploy) DeleteEtcd(etcdClusterName string, namespace string) error 
 	}
 
 	err = e.Client.Delete(e.Context, &clientService)
-	if err != nil {
+	if IgnoreNotFound(err) != nil {
 		e.Log.Error(err, "delete etcd client service failure", "etcdCluster", etcdClusterName)
 		return err
 	}

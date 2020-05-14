@@ -46,7 +46,7 @@ type MasterDedploy struct {
 
 	CaCert          *x509.Certificate
 	CaKey           *rsa.PrivateKey
-	AdminKubeconfig string
+	AdminKubeconfig []byte
 	MatrixClient    client.Client
 	ExposePort      string
 }
@@ -70,21 +70,22 @@ func (m *MasterDedploy) CreateService(name string, namespace string) error {
 				},
 			},
 			Selector: map[string]string{
-				"k8s-app": name,
+				"app": name,
 			},
 		},
 	}
 
 	err := m.Client.Create(m.Context, &svc)
-	if err != nil {
+	if IgnoreAlreadyExist(err) != nil {
 		m.Log.Error(err, "create master service failure", "name", name)
 		return err
 	}
+	m.Log.Info("master service create success", "name", svc.Name, "namespace", namespace)
 
 	return nil
 }
 
-func (m *MasterDedploy) CreateCerts(name string, namespace string) error {
+func (m *MasterDedploy) CreateCerts(name string, namespace string, exposeIps []string) error {
 	caCfg := Config{
 		CommonName: "kubernetes",
 	}
@@ -106,11 +107,22 @@ func (m *MasterDedploy) CreateCerts(name string, namespace string) error {
 
 	// create apiserver certs
 	apiserverDnsNames := []string{
-		"kubernetes","kubernetes.default","kubernetes.default.svc","kubernetes.default.svc.cluster.local",
+		"kubernetes","kubernetes.default","kubernetes.default.svc","kubernetes.default.svc.cluster.local",fmt.Sprintf("%s.%s", name, namespace),
 	}
+
+	svc := corev1.Service{}
+	err = m.Client.Get(m.Context, client.ObjectKey{Name:name, Namespace:namespace}, &svc)
+	if err != nil {
+		return err
+	}
+
 	apiserverAlternateIPs := []net.IP{
 		net.ParseIP("127.0.0.1"),
 		net.ParseIP("10.96.0.1"),
+		net.ParseIP(svc.Spec.ClusterIP),
+	}
+	for _, exposeIp := range exposeIps {
+		apiserverAlternateIPs = append(apiserverAlternateIPs, net.ParseIP(exposeIp))
 	}
 	apiserverCfg := Config{
 		CommonName: "kube-apiserver",
@@ -183,34 +195,28 @@ func (m *MasterDedploy) CreateCerts(name string, namespace string) error {
 	}
 
 	err = m.Client.Create(m.Context, &k8sCertsConfigmap)
-	if err != nil {
+	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
+	m.Log.Info("master cert configmap create success", "name", k8sCertsConfigmap.Name, "namespace", namespace)
 
 	return nil
 }
 
 func (m *MasterDedploy) CreateKubeconfig(name string, namespace string) error {
-	adminKubeconfig, err := CreateAdminKubeconfig(m.CaCert, m.CaKey)
+	serverUrl := fmt.Sprintf("https://%s.%s:6443", name, namespace)
+	adminKubeconfig, err := CreateAdminKubeconfig(m.CaCert, m.CaKey, serverUrl)
 	if err != nil {
 		return err
 	}
-	m.AdminKubeconfig = string(adminKubeconfig)
+	m.AdminKubeconfig = adminKubeconfig
 
-	matrixClient, err := GetRuntimeClient(m.AdminKubeconfig)
-	if err != nil {
-		return fmt.Errorf("Init matrix client failure, error: %v\n", err)
-	}
-
-	m.MatrixClient = matrixClient
-	MatrixClient[strings.ReplaceAll(name, "-ec", "")] = matrixClient
-
-	controllerManagerKUbeconfig, err := CreateControllerManagerKUbeconfig(m.CaCert, m.CaKey)
+	controllerManagerKUbeconfig, err := CreateControllerManagerKUbeconfig(m.CaCert, m.CaKey, serverUrl)
 	if err != nil {
 		return err
 	}
 
-	schedulerKubeconfig, err := CreateSchedulerKubeconfig(m.CaCert, m.CaKey)
+	schedulerKubeconfig, err := CreateSchedulerKubeconfig(m.CaCert, m.CaKey, serverUrl)
 	if err != nil {
 		return err
 	}
@@ -229,9 +235,10 @@ func (m *MasterDedploy) CreateKubeconfig(name string, namespace string) error {
 	}
 
 	err = m.Client.Create(m.Context, &k8sKubeconfigConfigmap)
-	if err != nil {
+	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
+	m.Log.Info("master kubeconfig create success", "name", k8sKubeconfigConfigmap.Name, "namespace", namespace)
 
 	return nil
 }
@@ -283,7 +290,7 @@ func (m *MasterDedploy) CreateDeployment(name string, namespace string, version 
 		},
 	}
 
-	kubeapiserContainer := getAapiserverContainer(fmt.Sprintf("%s/%s:%s", imageRegistry, imageRepo.Apiserver, version), etcdClusterName)
+	kubeapiserContainer := getAapiserverContainer(fmt.Sprintf("%s/%s:%s", imageRegistry, imageRepo.Apiserver, version), etcdClusterName, namespace)
 	controllerContainer := getControllerManagerContainer(fmt.Sprintf("%s/%s:%s", imageRegistry, imageRepo.ControllerManager, version))
 	schedulerContainer  := getSchedulerContainer(fmt.Sprintf("%s/%s:%s", imageRegistry, imageRepo.Scheduler, version))
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, kubeapiserContainer)
@@ -332,44 +339,45 @@ func (m *MasterDedploy) CreateDeployment(name string, namespace string, version 
 	}
 
 	err := m.Client.Create(m.Context, &deployment)
-	if err != nil {
+	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
+	m.Log.Info("master deployment create success", "name", deployment.Name, "namespace", namespace)
 
 	return nil
 }
 
-func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRepo *crdv1.ImageRepo) error {
+func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRepo *crdv1.ImageRepo, name string) error {
 	// init
 	// create default namespace
 	namespaceList := []string{"default","kube-system","kube-public"}
 	for _, ns := range namespaceList {
 		nsObject := corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
+				Name: ns,
 			},
 		}
 		err := m.MatrixClient.Create(m.Context, &nsObject)
-		if err != nil {
+		if IgnoreAlreadyExist(err) != nil {
 			return err
 		}
 	}
 
 	// configure cluster-info
-	err := m.createAndUpdateClusterInfo(m.AdminKubeconfig)
+	err := m.createAndUpdateClusterInfo(m.AdminKubeconfig, name, version)
 	if err != nil {
 		return err
 	}
 
 	// create kube-proxy daemonset
 	err = m.createKubeproxyDaemonset(fmt.Sprintf("%s/%s:%s",imageRegistry, imageRepo, version))
-	if err != nil {
+	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
 
 	// create master endpoint
 	err = m.createEndpoints()
-	if err != nil {
+	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
 
@@ -377,39 +385,44 @@ func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRe
 }
 
 func (m *MasterDedploy) CheckMasterRunning(name string, namespace string) error {
-	masterDeployment := &appsv1.Deployment{}
-	deploymentOk := client.ObjectKey{Name: fmt.Sprintf("%s", name), Namespace: namespace}
+	endpoint := &corev1.Endpoints{}
+	endpointOk := client.ObjectKey{Name: fmt.Sprintf("%s", name), Namespace: namespace}
 
 	var err error
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func(wg *sync.WaitGroup, err *error, masterDeployment *appsv1.Deployment, deploymentOk client.ObjectKey) {
-		timeout := time.After(time.Minute * 5)
-
+	go func(log logr.Logger, wg *sync.WaitGroup, err *error, svcEndpoint *corev1.Endpoints, endpointOk client.ObjectKey) {
+		timeout := time.After(time.Minute * 3)
+		defer wg.Done()
 		for {
 			select {
 			case <-timeout:
-				errNew := fmt.Errorf("check master deployment running timeout")
+				errNew := fmt.Errorf("check master deployment ready timeout")
 				err = &errNew
-				break
+				return
 			default:
-				getErr := m.Client.Get(m.Context, deploymentOk, masterDeployment)
+				getErr := m.Client.Get(m.Context, endpointOk, svcEndpoint)
 				if getErr != nil {
 					errNew := fmt.Errorf("get master deployment failure, error: %v\n", getErr)
 					err = &errNew
-					break
+					return
 				}
 
-				if *masterDeployment.Spec.Replicas == masterDeployment.Status.AvailableReplicas {
-					break
+				endpointResult := ""
+				if svcEndpoint.Subsets != nil && len(svcEndpoint.Subsets) > 0 {
+					for _, e := range svcEndpoint.Subsets[0].Addresses {
+						endpointResult += fmt.Sprintf("%s:6443", e.IP)
+					}
+				}
+				log.Info("check master endpoint", "name", svcEndpoint.Name, "result", endpointResult)
+				if endpointResult != "" {
+					return
 				}
 
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 5)
 			}
 		}
-
-		wg.Done()
-	}(&wg, &err, masterDeployment, deploymentOk)
+	}(m.Log, &wg, &err, endpoint, endpointOk)
 
 	wg.Wait()
 
@@ -430,7 +443,7 @@ func (m *MasterDedploy) DeleteMaster(name string, namespace string) error {
 		},
 	}
 	err := m.Client.Delete(m.Context, &svc)
-	if err != nil {
+	if IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -442,7 +455,7 @@ func (m *MasterDedploy) DeleteMaster(name string, namespace string) error {
 		},
 	}
 	err = m.Client.Delete(m.Context, &k8sCertsConfigmap)
-	if err != nil {
+	if IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -454,7 +467,7 @@ func (m *MasterDedploy) DeleteMaster(name string, namespace string) error {
 		},
 	}
 	err = m.Client.Delete(m.Context, &k8sKubeconfigConfigmap)
-	if err != nil {
+	if IgnoreNotFound(err) != nil {
 		return err
 	}
 
@@ -465,21 +478,31 @@ func (m *MasterDedploy) DeleteMaster(name string, namespace string) error {
 		},
 	}
 	err = m.Client.Delete(m.Context, &deployment)
-	if err != nil {
+	if IgnoreNotFound(err) != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig string) error {
-	err := WriteFile("/etc/kubernetes/admin.conf", []byte(adminKubeconfig))
+func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig []byte, masterName string, version string) error {
+	kubeconfigFileName := "/etc/kubernetes/admin.conf"
+	err := WriteFile(kubeconfigFileName, adminKubeconfig)
 	if err != nil {
-		return fmt.Errorf("create /etc/kubernetes/admin failure for cluster-info, error: %v\n", err)
+		return fmt.Errorf("create %s failure for cluster-info, error: %v\n", kubeconfigFileName, err)
 	}
 
-	cmd := "kubeadm init phase bootstrap-token"
-	out, err := ExecCmd(cmd)
+	kubeadmConfig := `apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+kubernetesVersion: ` + version
+	configFileName := "/etc/kubernetes/config.yaml"
+	err = WriteFile(configFileName, []byte(kubeadmConfig))
+	if err != nil {
+		return fmt.Errorf("create %s failure for cluster-info, error: %v\n", configFileName, err)
+	}
+
+	cmd := fmt.Sprintf("kubeadm init phase bootstrap-token --kubeconfig=%s --config=%s", kubeconfigFileName, configFileName)
+	out, err := ExecCmd("/bin/sh", cmd)
 	if err != nil {
 		return fmt.Errorf("exec cmd [%s] failure, error: %v\n", cmd, err)
 	}
@@ -487,8 +510,8 @@ func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig string) error
 	m.Log.Info("configure cluster-info success", "out", out)
 
 	clusterInfoCm := corev1.ConfigMap{}
-	getOk := client.ObjectKey{Name: fmt.Sprintf("%s", m.MasterCrd.Name), Namespace: m.MasterCrd.Namespace}
-	err = m.Client.Get(m.Context, getOk, &clusterInfoCm)
+	getOk := client.ObjectKey{Name: "cluster-info", Namespace: "kube-public"}
+	err = m.MatrixClient.Get(m.Context, getOk, &clusterInfoCm)
 	if err != nil {
 		return err
 	}
@@ -501,13 +524,13 @@ func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig string) error
 	}
 
 	m.ExposePort = svc.Spec.Ports[0].TargetPort.String()
-	kubeconfigConfKey := "kubeconfig.conf"
+	kubeconfigConfKey := "kubeconfig"
 	kubeconfigConf := clusterInfoCm.Data[kubeconfigConfKey]
 	newServer := fmt.Sprintf("server: https://%s:%s",m.MasterCrd.Spec.Expose.Node[0], m.ExposePort)
-	newKubeconfigConf := strings.Replace(kubeconfigConf, "server: https://127.0.0.1:6443", newServer, -1)
+	newKubeconfigConf := strings.Replace(kubeconfigConf, fmt.Sprintf("server: https://%s.%s:6443",m.MasterCrd.Name, m.MasterCrd.Namespace), newServer, -1)
 	clusterInfoCm.Data[kubeconfigConfKey] = newKubeconfigConf
 
-	err = m.Client.Update(m.Context, &clusterInfoCm)
+	err = m.MatrixClient.Update(m.Context, &clusterInfoCm)
 	if err != nil {
 		return err
 	}
@@ -666,7 +689,7 @@ func (m *MasterDedploy) createEndpoints() error {
 	return nil
 }
 
-func getAapiserverContainer(image string, etcdCluster string) corev1.Container {
+func getAapiserverContainer(image string, etcdCluster string, namespace string) corev1.Container {
 	return corev1.Container{
 		Name: "kube-apiserver",
 		Command: []string{
@@ -680,7 +703,7 @@ func getAapiserverContainer(image string, etcdCluster string) corev1.Container {
 			"--etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt",
 			"--etcd-certfile=/etc/kubernetes/pki/etcd/etcd-client.crt",
 			"--etcd-keyfile=/etc/kubernetes/pki/etcd/etcd-client.key",
-			"--etcd-servers=https://"+etcdCluster+"-client:2379",
+			fmt.Sprintf("--etcd-servers=https://%s-client.%s:2379", etcdCluster, namespace),
 			"--insecure-port=0",
 			"--kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt",
 			"--kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key",

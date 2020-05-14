@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/cxwen/matrix/common/constants"
 	. "github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
@@ -38,6 +39,10 @@ type DnsReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=dns,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="extensions",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=dns/status,verbs=get;update;patch
 
 func (r *DnsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -49,32 +54,51 @@ func (r *DnsReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var err error
 	if err = r.Get(ctx, req.NamespacedName, &dns); err != nil {
-		log.Error(err, "unable to fetch dns")
-		return ctrl.Result{}, ignoreNotFound(err)
+		if IgnoreNotFound(err) != nil {
+			log.Error(err, "unable to fetch dns")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	clientName := fmt.Sprintf("%s-km",dns.Name)
+	err = InitMatrixClient(r.Client, ctx, clientName, dns.Namespace)
+	if err != nil {
+		r.Log.Error(err, "init matrix client failure", "name", dns.Name, "namespace", dns.Namespace)
+		return ctrl.Result{}, err
 	}
 
 	dnsDeploy := DnsDedploy{
 		Context: ctx,
 		Client: r.Client,
 		Log: r.Log,
-		MatrixClient: MatrixClient[dns.Name],
+		MatrixClient: MatrixClient[clientName],
+	}
+
+	if dnsDeploy.MatrixClient == nil {
+		return ctrl.Result{}, fmt.Errorf("matrix client is nil")
 	}
 
 	dnsFinalizer := constants.DefaultFinalizer
 	if dns.ObjectMeta.DeletionTimestamp.IsZero() {
-		if ! containsString(dns.ObjectMeta.Finalizers, dnsFinalizer) {
+		if ! ContainsString(dns.ObjectMeta.Finalizers, dnsFinalizer) {
 			dns.ObjectMeta.Finalizers = append(dns.ObjectMeta.Finalizers, dnsFinalizer)
+			if err := r.Update(ctx, &dns); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return r.createDns(&dnsDeploy, &dns)
 		}
 	} else {
-		if containsString(dns.ObjectMeta.Finalizers, dnsFinalizer) {
-			result, err := r.deleteDns(&dnsDeploy, &dns)
-			if err != nil {
-				return result, err
-			}
+		if ContainsString(dns.ObjectMeta.Finalizers, dnsFinalizer) {
+			//result, err := r.deleteDns(&dnsDeploy, &dns)
+			//if err != nil {
+			//	return result, err
+			//}
 
-			dns.ObjectMeta.Finalizers = removeString(dns.ObjectMeta.Finalizers, dnsFinalizer)
-			if err = r.Update(context.Background(), &dns); err != nil {
+			dns.ObjectMeta.Finalizers = RemoveString(dns.ObjectMeta.Finalizers, dnsFinalizer)
+			if err = r.Update(ctx, &dns); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -94,20 +118,20 @@ func (r *DnsReconciler) createDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.R
 	err := r.Status().Update(dnsDeploy.Context, dns)
 	if err != nil {
 		r.Log.Error(err, "update dns status phase failure", "dns", dns.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = dnsDeploy.Create(dnsType, replicas, version, imageRegistry, imageRepo)
 	if err != nil {
 		r.Log.Error(err,"create dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
-	dns.Status.Phase = crdv1.DnsRunningPhase
+	dns.Status.Phase = crdv1.DnsReadyPhase
 	err = r.Status().Update(dnsDeploy.Context, dns)
 	if err != nil {
 		r.Log.Error(err, "update dns status phase failure", "dns", dns.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -118,14 +142,14 @@ func (r *DnsReconciler) deleteDns(dnsDeploy *DnsDedploy, dns *crdv1.Dns) (ctrl.R
 	err := r.Status().Update(dnsDeploy.Context, dns)
 	if err != nil {
 		r.Log.Error(err, "update dns status phase failure when delete", "dns", dns.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
-	err = dnsDeploy.Delete(dns.Spec.Type, dns.Spec.Version, dns.Spec.ImageRegistry, dns.Spec.ImageRepo)
-	if err != nil {
-		r.Log.Error(err,"delete dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
-		return ctrl.Result{Requeue:true}, err
-	}
+	//err = dnsDeploy.Delete(dns.Spec.Type, dns.Spec.Version, dns.Spec.ImageRegistry, dns.Spec.ImageRepo)
+	//if err != nil {
+	//	r.Log.Error(err,"delete dns failure", "dns crd name", dns.Name, "dns crd namespace", dns.Namespace)
+	//	return ctrl.Result{}, err
+	//}
 
 	return ctrl.Result{}, nil
 }

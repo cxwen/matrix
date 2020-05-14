@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net"
@@ -13,20 +14,12 @@ import (
 )
 
 func Telnet(host string, port string) bool {
-	success := false
-	timeout := time.Second
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
+	con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%s", host, port), time.Duration(2)*time.Second)
 	if err != nil {
-		success = false
-	} else {
-		success = true
+		return false
 	}
-
-	if conn != nil {
-		defer conn.Close()
-	}
-
-	return success
+	con.Close()
+	return true
 }
 
 func ParseTemplate(strtmpl string, obj ...interface{}) ([]byte, error) {
@@ -47,6 +40,9 @@ func ParseTemplate(strtmpl string, obj ...interface{}) ([]byte, error) {
 }
 
 func WriteFile(fileName string, b []byte) error {
+	if Exists(fileName) {
+		return nil
+	}
 	var dir string
 	arr := strings.Split(fileName, "/")
 
@@ -75,4 +71,15 @@ func WriteFile(fileName string, b []byte) error {
 	}
 
 	return nil
+}
+
+func Exists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
 }

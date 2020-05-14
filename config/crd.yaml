@@ -210,13 +210,17 @@ spec:
     description: etcdcluster name
     name: ETCD
     type: string
-  - JSONPath: .spec.expose.type.
+  - JSONPath: .spec.expose.method
     description: expose type
     name: EXPOSETYPE
     type: string
-  - JSONPath: .status.exposeUrl
-    description: expose url
-    name: EXPOSEURL
+  - JSONPath: .spec.expose.node
+    description: expose node
+    name: EXPOSENODE
+    type: string
+  - JSONPath: .spec.expose.port
+    description: expose port
+    name: EXPOSEPORT
     type: string
   - JSONPath: .status.phase
     description: phase
@@ -257,21 +261,28 @@ spec:
               type: string
             expose:
               properties:
+                method:
+                  type: string
                 node:
                   items:
                     type: string
                   type: array
-                type:
+                port:
                   type: string
               required:
+              - method
               - node
-              - type
+              - port
               type: object
             imageRegistry:
+              type: string
+            imageRepo:
               properties:
                 apiserver:
                   type: string
                 controllerManager:
+                  type: string
+                proxy:
                   type: string
                 scheduler:
                   type: string
@@ -288,11 +299,16 @@ spec:
         status:
           description: MasterStatus defines the observed state of Master
           properties:
+            adminKubeconfig:
+              type: string
             exposeUrl:
               items:
                 type: string
               type: array
             phase:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
               type: string
           type: object
       type: object
@@ -332,18 +348,6 @@ spec:
   - JSONPath: .spec.etcd.replicas
     description: replicas
     name: ETCDREPLICAS
-    type: string
-  - JSONPath: .spec.dns.version
-    description: version
-    name: DNSVERSION
-    type: string
-  - JSONPath: .spec.networkPlugin.type.
-    description: network plugin
-    name: NETWORKPLUGIN
-    type: string
-  - JSONPath: .spec.networkPlugin.calico.version.
-    description: network plugin
-    name: NETWORKPLUGINVERION
     type: string
   - JSONPath: .status.phase
     description: phase
@@ -427,21 +431,28 @@ spec:
                   type: string
                 expose:
                   properties:
+                    method:
+                      type: string
                     node:
                       items:
                         type: string
                       type: array
-                    type:
+                    port:
                       type: string
                   required:
+                  - method
                   - node
-                  - type
+                  - port
                   type: object
                 imageRegistry:
+                  type: string
+                imageRepo:
                   properties:
                     apiserver:
                       type: string
                     controllerManager:
+                      type: string
+                    proxy:
                       type: string
                     scheduler:
                       type: string
@@ -460,6 +471,8 @@ spec:
               properties:
                 calico:
                   properties:
+                    flexvolDriverImageRepo:
+                      type: string
                     imageRegistry:
                       type: string
                     installCniImageRepo:
@@ -513,6 +526,34 @@ metadata:
   creationTimestamp: null
   name: networkplugins.crd.cxwen.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.type
+    description: type
+    name: TYPE
+    type: string
+  - JSONPath: .spec.calico.version
+    description: dns version
+    name: VERSION
+    type: string
+  - JSONPath: .spec.calico.ipAutodetectionMethod
+    description: ipAutodetectionMethod
+    name: IPAUTODETECTIONMETHOD
+    type: string
+  - JSONPath: .spec.calico.ipv4poolIpip
+    description: Ipv4poolIpip
+    name: IPV4POOLIPIP
+    type: string
+  - JSONPath: .spec.calico.ipv4poolCidr
+    description: Ipv4poolCidr
+    name: IPV4POOLCIDR
+    type: string
+  - JSONPath: .status.phase
+    description: phase
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    name: AGE
+    type: date
   group: crd.cxwen.com
   names:
     kind: NetworkPlugin
@@ -520,6 +561,8 @@ spec:
     plural: networkplugins
     singular: networkplugin
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: NetworkPlugin is the Schema for the networkplugins API
@@ -541,6 +584,8 @@ spec:
           properties:
             calico:
               properties:
+                flexvolDriverImageRepo:
+                  type: string
                 imageRegistry:
                   type: string
                 installCniImageRepo:
@@ -625,6 +670,116 @@ metadata:
   name: matrix-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - crd.cxwen.com
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - crd.cxwen.com
   resources:
   - dns
@@ -687,18 +842,6 @@ rules:
 - apiGroups:
   - crd.cxwen.com
   resources:
-  - matrices
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - crd.cxwen.com
-  resources:
   - matrices/status
   verbs:
   - get
@@ -724,6 +867,44 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -832,6 +1013,7 @@ spec:
         - --logtostderr=true
         - --v=10
         image: xwcheng/kubebuilder-kube-rbac-proxy:v0.5.0
+        imagePullPolicy: IfNotPresent
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
@@ -842,12 +1024,6 @@ spec:
         command:
         - /manager
         image: xwcheng/matrix:latest
+        imagePullPolicy: IfNotPresent
         name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
       terminationGracePeriodSeconds: 10

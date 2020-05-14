@@ -38,7 +38,7 @@ type CalicoConfig struct {
 	ImageRegistry           string `json:"imageRegistry,omitempty"`
 	InstallCniImageRepo     string `json:"installCniImageRepo,omitempty"`
 	NodeImageRepo           string `json:"nodeImageRepo,omitempty"`
-	FlexvolDriverImageRepo  string `json:"nodeImageRepo,omitempty"`
+	FlexvolDriverImageRepo  string `json:"flexvolDriverImageRepo,omitempty"`
 	KubeControllerImageRepo string `json:"kubeControllerImageRepo,omitempty"`
 	IpAutodetectionMethod   string `json:"ipAutodetectionMethod,omitempty"`
 	Ipv4poolIpip            string `json:"ipv4poolIpip,omitempty"`
@@ -49,7 +49,7 @@ type NetworkPluginPhase string
 
 const (
 	NetworkPluginInitializingPhase NetworkPluginPhase = "Initializing"
-	NetworkPluginRunningPhase      NetworkPluginPhase = "Running"
+	NetworkPluginReadyPhase      NetworkPluginPhase = "Ready"
 	NetworkPluginTeminatingPhase   NetworkPluginPhase = "Teminating"
 )
 
@@ -61,6 +61,14 @@ type NetworkPluginStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="type"
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.calico.version",description="dns version"
+// +kubebuilder:printcolumn:name="IPAUTODETECTIONMETHOD",type="string",JSONPath=".spec.calico.ipAutodetectionMethod",description="ipAutodetectionMethod"
+// +kubebuilder:printcolumn:name="IPV4POOLIPIP",type="string",JSONPath=".spec.calico.ipv4poolIpip",description="Ipv4poolIpip"
+// +kubebuilder:printcolumn:name="IPV4POOLCIDR",type="string",JSONPath=".spec.calico.ipv4poolCidr",description="Ipv4poolCidr"
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // NetworkPlugin is the Schema for the networkplugins API
 type NetworkPlugin struct {
@@ -72,14 +80,6 @@ type NetworkPlugin struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="type"
-// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".spec.calico.version",description="dns version"
-// +kubebuilder:printcolumn:name="IPAUTODETECTIONMETHOD",type="string",JSONPath=".spec.calico.ipAutodetectionMethod",description="ipAutodetectionMethod"
-// +kubebuilder:printcolumn:name="IPV4POOLIPIP",type="string",JSONPath=".spec.calico.Ipv4poolIpip",description="Ipv4poolIpip"
-// +kubebuilder:printcolumn:name="IPV4POOLCIDR",type="string",JSONPath=".spec.calico.Ipv4poolCidr",description="Ipv4poolCidr"
-// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
-// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 
 // NetworkPluginList contains a list of NetworkPlugin
 type NetworkPluginList struct {

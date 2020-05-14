@@ -215,7 +215,7 @@ func CreateBasic(serverURL, clusterName, userName string, caCert []byte) *client
 	}
 }
 
-func CreateAdminKubeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey) ([]byte, error) {
+func CreateAdminKubeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey, serverUrl string) ([]byte, error) {
 	cfg := Config{
 		CommonName:   "kubernetes-admin",
 		Organization: []string{"system:masters"},
@@ -227,13 +227,13 @@ func CreateAdminKubeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey) ([]b
 		return nil, err
 	}
 
-	kubeconfig := CreateKubeconfigWithCerts(DefaultServerUrl, "kubernetes", "kubernetes-admin",
-		EncodeCertPEM(caCert), EncodeCertPEM(cert), EncodePrivateKeyPEM(key))
+	kubeconfig := CreateKubeconfigWithCerts(serverUrl, "kubernetes", "kubernetes-admin",
+		EncodeCertPEM(caCert), EncodePrivateKeyPEM(key), EncodeCertPEM(cert))
 
 	return runtime.Encode(clientcmdlatest.Codec, kubeconfig)
 }
 
-func CreateControllerManagerKUbeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey) ([]byte, error) {
+func CreateControllerManagerKUbeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey, serverUrl string) ([]byte, error) {
 	cfg := Config{
 		CommonName: "system:kube-controller-manager",
 		Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
@@ -244,13 +244,13 @@ func CreateControllerManagerKUbeconfig(caCert *x509.Certificate, caKey *rsa.Priv
 		return nil, err
 	}
 
-	kubeconfig := CreateKubeconfigWithCerts(DefaultServerUrl, "kubernetes", "system:kube-controller-manager",
-		EncodeCertPEM(caCert), EncodeCertPEM(cert), EncodePrivateKeyPEM(key))
+	kubeconfig := CreateKubeconfigWithCerts(serverUrl, "kubernetes", "system:kube-controller-manager",
+		EncodeCertPEM(caCert),  EncodePrivateKeyPEM(key), EncodeCertPEM(cert))
 
 	return runtime.Encode(clientcmdlatest.Codec, kubeconfig)
 }
 
-func CreateSchedulerKubeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey) ([]byte, error) {
+func CreateSchedulerKubeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey, serverUrl string) ([]byte, error) {
 	cfg := Config{
 		CommonName: "system:kube-scheduler",
 		Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
@@ -261,8 +261,8 @@ func CreateSchedulerKubeconfig(caCert *x509.Certificate, caKey *rsa.PrivateKey) 
 		return nil, err
 	}
 
-	kubeconfig := CreateKubeconfigWithCerts(DefaultServerUrl, "kubernetes", "system:kube-scheduler",
-		EncodeCertPEM(caCert), EncodeCertPEM(cert), EncodePrivateKeyPEM(key))
+	kubeconfig := CreateKubeconfigWithCerts(serverUrl, "kubernetes", "system:kube-scheduler",
+		EncodeCertPEM(caCert), EncodePrivateKeyPEM(key), EncodeCertPEM(cert))
 
 	return runtime.Encode(clientcmdlatest.Codec, kubeconfig)
 }

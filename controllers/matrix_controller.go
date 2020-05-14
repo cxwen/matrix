@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"github.com/cxwen/matrix/common/constants"
+	"github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
 
 	"github.com/go-logr/logr"
@@ -36,7 +37,8 @@ type MatrixReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=crd.cxwen.com,resources=matrices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=crd.cxwen.com,resources=*,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=matrices/status,verbs=get;update;patch
 
 func (r *MatrixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -48,31 +50,39 @@ func (r *MatrixReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var err error
 	if err = r.Get(ctx, req.NamespacedName, &matrix); err != nil {
-		log.Error(err, "unable to fetch matrix")
-		return ctrl.Result{}, ignoreNotFound(err)
+		if utils.IgnoreNotFound(err) != nil {
+			log.Error(err, "unable to fetch matrix")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	matrixDeploy := MatrixDedploy{
 		Context: ctx,
 		Client: r.Client,
-		Log: r.Log,
+		Log: log,
 	}
 
 	matrixFinalizer := constants.DefaultFinalizer
 	if matrix.ObjectMeta.DeletionTimestamp.IsZero() {
-		if ! containsString(matrix.ObjectMeta.Finalizers, matrixFinalizer) {
+		if ! utils.ContainsString(matrix.ObjectMeta.Finalizers, matrixFinalizer) {
 			matrix.ObjectMeta.Finalizers = append(matrix.ObjectMeta.Finalizers, matrixFinalizer)
+			if err = r.Update(ctx, &matrix); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return r.createMatrix(&matrixDeploy, &matrix)
 		}
 	} else {
-		if containsString(matrix.ObjectMeta.Finalizers, matrixFinalizer) {
+		if utils.ContainsString(matrix.ObjectMeta.Finalizers, matrixFinalizer) {
 			result, err := r.deleteMatrix(&matrixDeploy, &matrix)
 			if err != nil {
 				return result, err
 			}
 
-			matrix.ObjectMeta.Finalizers = removeString(matrix.ObjectMeta.Finalizers, matrixFinalizer)
-			if err = r.Update(context.Background(), &matrix); err != nil {
+			matrix.ObjectMeta.Finalizers = utils.RemoveString(matrix.ObjectMeta.Finalizers, matrixFinalizer)
+			if err = r.Update(ctx, &matrix); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -86,20 +96,32 @@ func (r *MatrixReconciler) createMatrix(matrixDeploy *MatrixDedploy, matrix *crd
 	err := r.Status().Update(matrixDeploy.Context, matrix)
 	if err != nil {
 		r.Log.Error(err, "update matirx status phase failure", "matirx", matrix.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = matrixDeploy.Create(matrix.Name, matrix.Namespace, &matrix.Spec)
 	if err != nil {
 		r.Log.Error(err, "create matirx failure", "matirx", matrix.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
+	}
+
+	err = matrixDeploy.Update(matrix.Name, matrix.Namespace, matrix)
+	if err != nil {
+		r.Log.Error(err, "update matirx spec value failure", "matirx", matrix.Name)
+		return ctrl.Result{}, err
+	}
+
+	err = r.Update(matrixDeploy.Context, matrix)
+	if err != nil {
+		r.Log.Error(err, "update matirx failure", "matirx", matrix.Name)
+		return ctrl.Result{}, err
 	}
 
 	matrix.Status.Phase = crdv1.MatrixReadyPhase
 	err = r.Status().Update(matrixDeploy.Context, matrix)
 	if err != nil {
 		r.Log.Error(err, "update matirx status phase failure", "matirx", matrix.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -110,14 +132,15 @@ func (r *MatrixReconciler) deleteMatrix(matrixDeploy *MatrixDedploy, matrix *crd
 	err := r.Status().Update(matrixDeploy.Context, matrix)
 	if err != nil {
 		r.Log.Error(err, "update matirx status phase failure", "matirx", matrix.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = matrixDeploy.Delete(matrix.Name, matrix.Namespace)
 	if err != nil {
 		r.Log.Error(err, "create matirx failure", "matirx", matrix.Name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 

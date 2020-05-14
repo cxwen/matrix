@@ -26,14 +26,19 @@ var (
 			Kind: "Master",
 		},
 		Spec: crdv1.MasterSpec{
-			Version: "1.15.2",
+			Version: "v1.15.12",
 			Replicas: 1,
 			ImageRegistry: DefaultImageRegistry,
-			ImageRepo: crdv1.ImageRepo{
+			ImageRepo: &crdv1.ImageRepo{
 				Apiserver: DefaultImageProject + "/kube-apiserver-amd64",
 				ControllerManager: DefaultImageProject + "/kube-controller-manager-amd64",
 				Scheduler: DefaultImageProject + "/kube-scheduler-amd64",
 				Proxy: DefaultImageProject + "/kube-proxy-amd64",
+			},
+			Expose: &crdv1.Expose{
+				Method: "NodePort",
+				Node: []string{"127.0.0.1"},
+				Port: "6443",
 			},
 		},
 	}

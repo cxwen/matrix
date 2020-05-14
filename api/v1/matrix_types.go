@@ -56,9 +56,6 @@ type MatrixStatus struct {
 // +kubebuilder:printcolumn:name="K8SREPLICAS",type="string",JSONPath=".spec.master.replicas",description="replicas"
 // +kubebuilder:printcolumn:name="ETCDVERSION",type="string",JSONPath=".spec.etcd.version",description="version"
 // +kubebuilder:printcolumn:name="ETCDREPLICAS",type="string",JSONPath=".spec.etcd.replicas",description="replicas"
-// +kubebuilder:printcolumn:name="DNSVERSION",type="string",JSONPath=".spec.dns.version",description="version"
-// +kubebuilder:printcolumn:name="NETWORKPLUGIN",type="string",JSONPath=".spec.networkPlugin.type.",description="network plugin"
-// +kubebuilder:printcolumn:name="NETWORKPLUGINVERION",type="string",JSONPath=".spec.networkPlugin.calico.version.",description="network plugin"
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="phase"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 

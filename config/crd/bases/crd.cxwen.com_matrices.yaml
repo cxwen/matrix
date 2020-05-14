@@ -25,18 +25,6 @@ spec:
     description: replicas
     name: ETCDREPLICAS
     type: string
-  - JSONPath: .spec.dns.version
-    description: version
-    name: DNSVERSION
-    type: string
-  - JSONPath: .spec.networkPlugin.type.
-    description: network plugin
-    name: NETWORKPLUGIN
-    type: string
-  - JSONPath: .spec.networkPlugin.calico.version.
-    description: network plugin
-    name: NETWORKPLUGINVERION
-    type: string
   - JSONPath: .status.phase
     description: phase
     name: PHASE
@@ -119,21 +107,28 @@ spec:
                   type: string
                 expose:
                   properties:
+                    method:
+                      type: string
                     node:
                       items:
                         type: string
                       type: array
-                    type:
+                    port:
                       type: string
                   required:
+                  - method
                   - node
-                  - type
+                  - port
                   type: object
                 imageRegistry:
+                  type: string
+                imageRepo:
                   properties:
                     apiserver:
                       type: string
                     controllerManager:
+                      type: string
+                    proxy:
                       type: string
                     scheduler:
                       type: string
@@ -152,6 +147,8 @@ spec:
               properties:
                 calico:
                   properties:
+                    flexvolDriverImageRepo:
+                      type: string
                     imageRegistry:
                       type: string
                     installCniImageRepo:

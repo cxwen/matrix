@@ -40,7 +40,7 @@ type DnsPhase string
 
 const (
 	DnsInitializingPhase DnsPhase = "Initializing"
-	DnsRunningPhase      DnsPhase = "Running"
+	DnsReadyPhase      DnsPhase = "Ready"
 	DnsTeminatingPhase   DnsPhase = "Teminating"
 )
 

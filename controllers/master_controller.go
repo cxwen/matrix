@@ -18,15 +18,22 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/cxwen/matrix/common/constants"
+	. "github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
+	"regexp"
+	"strconv"
+	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	crdv1 "github.com/cxwen/matrix/api/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // MasterReconciler reconciles a Master object
@@ -37,6 +44,10 @@ type MasterReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=masters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services;configmaps;endpoints,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="extensions",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=crd.cxwen.com,resources=masters/status,verbs=get;update;patch
 
 func (r *MasterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -48,8 +59,12 @@ func (r *MasterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var err error
 	if err = r.Get(ctx, req.NamespacedName, &master); err != nil {
-		log.Error(err, "unable to fetch master")
-		return ctrl.Result{}, ignoreNotFound(err)
+		if IgnoreNotFound(err) != nil {
+			log.Error(err, "unable to fetch master")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	masterDeploy := MasterDedploy{
@@ -61,19 +76,23 @@ func (r *MasterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	masterFinalizer := constants.DefaultFinalizer
 	if master.ObjectMeta.DeletionTimestamp.IsZero() {
-		if ! containsString(master.ObjectMeta.Finalizers, masterFinalizer) {
+		if ! ContainsString(master.ObjectMeta.Finalizers, masterFinalizer) {
 			master.ObjectMeta.Finalizers = append(master.ObjectMeta.Finalizers, masterFinalizer)
+			if err := r.Update(ctx, &master); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			return r.createMaster(&masterDeploy, &master)
 		}
 	} else {
-		if containsString(master.ObjectMeta.Finalizers, masterFinalizer) {
+		if ContainsString(master.ObjectMeta.Finalizers, masterFinalizer) {
 			result, err := r.deleteMaster(&masterDeploy, &master)
 			if err != nil {
 				return result, err
 			}
 
-			master.ObjectMeta.Finalizers = removeString(master.ObjectMeta.Finalizers, masterFinalizer)
-			if err = r.Update(context.Background(), &master); err != nil {
+			master.ObjectMeta.Finalizers = RemoveString(master.ObjectMeta.Finalizers, masterFinalizer)
+			if err = r.Update(ctx, &master); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -88,57 +107,101 @@ func (r *MasterReconciler) createMaster(masterDeploy *MasterDedploy, master *crd
 	version := master.Spec.Version
 	replicas := master.Spec.Replicas
 	imageRegistry := master.Spec.ImageRegistry
-	imageRepo := &master.Spec.ImageRepo
+	imageRepo := master.Spec.ImageRepo
 	etcdCluster := master.Spec.EtcdCluster
 
 	master.Status.Phase = crdv1.MasterInitializingPhase
 	err := r.Status().Update(masterDeploy.Context, master)
 	if err != nil {
 		r.Log.Error(err, "update master status phase failure", "master", name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = masterDeploy.CreateService(name, namespace)
 	if err != nil {
 		r.Log.Error(err, "create master svc failure", "name", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
-	err = masterDeploy.CreateCerts(name, namespace)
+	err = masterDeploy.CreateCerts(name, namespace, master.Spec.Expose.Node)
 	if err != nil {
 		r.Log.Error(err, "create master certs failure", "name", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = masterDeploy.CreateKubeconfig(name, namespace)
 	if err != nil {
 		r.Log.Error(err, "create master kubeconfig failure", "name", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
+	master.Status.AdminKubeconfig = Base64Encode(masterDeploy.AdminKubeconfig)
 
 	err = masterDeploy.CreateDeployment(name, namespace, version, replicas, imageRegistry, imageRepo, etcdCluster)
 	if err != nil {
 		r.Log.Error(err, "create master deployment failure", "name", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = masterDeploy.CheckMasterRunning(name, namespace)
 	if err != nil {
 		r.Log.Error(err, "check master deployment failure", "name", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
-	err = masterDeploy.MasterInit(version, imageRegistry, imageRepo)
+	if master.Spec.Expose.Method == "NodePort" {
+		masterSvc := &corev1.Service{}
+		err := masterDeploy.Client.Get(masterDeploy.Context, client.ObjectKey{Name:master.Name, Namespace:master.Namespace}, masterSvc)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				time.Sleep(time.Second * 7)
+				err = masterDeploy.Client.Get(masterDeploy.Context, client.ObjectKey{Name:master.Name, Namespace:master.Namespace}, masterSvc)
+				if err != nil {
+					return ctrl.Result{}, fmt.Errorf("get master svc failure, error: %v\n", err)
+				}
+			}
+		}
+		master.Spec.Expose.Port = strconv.Itoa(int(masterSvc.Spec.Ports[0].NodePort))
+
+		replaceReg := regexp.MustCompile(`https://.*:6443`)
+		nodePortServer := fmt.Sprintf("https://%s:%s", master.Spec.Expose.Node[0], master.Spec.Expose.Port)
+		nodePortKubeconfig := replaceReg.ReplaceAll(masterDeploy.AdminKubeconfig, []byte(nodePortServer))
+		master.Status.AdminKubeconfig = Base64Encode(nodePortKubeconfig)
+	}
+
+	initTry := 10
+	for i:=0;i<initTry;i++ {
+		r.Log.Info("try init matrix client", "name", name, "num", i)
+		err = InitMatrixClient(masterDeploy.Client, masterDeploy.Context, name, master.Namespace)
+		if err != nil {
+			r.Log.Error(err, "init matrix client failure", "name", name, "namespace", namespace)
+			time.Sleep(time.Second * 5)
+		} else {
+			break
+		}
+	}
+
+	if MatrixClient[name] == nil {
+		return ctrl.Result{}, fmt.Errorf("matrix client is nil")
+	}
+	masterDeploy.MatrixClient = MatrixClient[name]
+
+	err = masterDeploy.MasterInit(version, imageRegistry, imageRepo, name)
 	if err != nil {
 		r.Log.Error(err, "init matrix cluster failure", "name", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
-	master.Status.Phase = crdv1.MasterRunningPhase
+	err = r.Client.Update(masterDeploy.Context, master)
+	if err != nil {
+		r.Log.Error(err, "update master failure", "master", name)
+		return ctrl.Result{}, err
+	}
+
+	master.Status.Phase = crdv1.MasterReadyPhase
 	err = r.Status().Update(masterDeploy.Context, master)
 	if err != nil {
 		r.Log.Error(err, "update master status phase failure", "master", name)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -152,13 +215,13 @@ func (r *MasterReconciler) deleteMaster(masterDeploy *MasterDedploy, master *crd
 	err = r.Status().Update(masterDeploy.Context, master)
 	if err != nil {
 		r.Log.Error(err, "update etcdcluster status phase failure", "master", name, "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	err = masterDeploy.DeleteMaster(name, namespace)
 	if err != nil {
 		r.Log.Error(err, "delete master failure", "name", name,  "namespace", namespace)
-		return ctrl.Result{Requeue:true}, err
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
