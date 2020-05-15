@@ -166,6 +166,7 @@ func (r *MasterReconciler) createMaster(masterDeploy *MasterDedploy, master *crd
 		nodePortServer := fmt.Sprintf("https://%s:%s", master.Spec.Expose.Node[0], master.Spec.Expose.Port)
 		nodePortKubeconfig := replaceReg.ReplaceAll(masterDeploy.AdminKubeconfig, []byte(nodePortServer))
 		master.Status.AdminKubeconfig = Base64Encode(nodePortKubeconfig)
+		masterDeploy.ExposePort = master.Spec.Expose.Port
 	}
 
 	initTry := 10

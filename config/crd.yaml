@@ -1027,3 +1027,10 @@ spec:
         imagePullPolicy: IfNotPresent
         name: manager
       terminationGracePeriodSeconds: 10
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists

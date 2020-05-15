@@ -156,7 +156,7 @@ func (e *EctdDeploy) CreateEtcdCerts(etcdClusterName string, namespace string) e
 			DNSNames: serverDnsNames,
 			IPs: serverAlternateIPs,
 		},
-		Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 	}
 	serverCert, serverKey, err := GenerateCert(serverCfg, caCert, caKey)
 	if err != nil {

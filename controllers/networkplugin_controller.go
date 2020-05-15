@@ -22,6 +22,7 @@ import (
 	"github.com/cxwen/matrix/common/constants"
 	. "github.com/cxwen/matrix/common/utils"
 	. "github.com/cxwen/matrix/pkg"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	crdv1 "github.com/cxwen/matrix/api/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // NetworkPluginReconciler reconciles a NetworkPlugin object
@@ -79,6 +81,36 @@ func (r *NetworkPluginReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	if networkpluginDeploy.MatrixClient == nil {
 		return ctrl.Result{}, fmt.Errorf("matrix client is nil")
+	}
+
+	configmap := &corev1.ConfigMap{}
+	getOk := client.ObjectKey{Name: fmt.Sprintf("%s-km-kubeconfig", networkplugin.Name), Namespace: networkplugin.Namespace}
+	err = r.Client.Get(ctx, getOk, configmap)
+	if err != nil {
+		r.Log.Error(err, "get kubeconfig configmap failure", "name", networkplugin.Name, "namespace", networkplugin.Namespace)
+		return ctrl.Result{}, err
+	}
+
+	if _, ok := configmap.Data["admin.conf"]; ok {
+		kubeconfigBytes := []byte(configmap.Data["admin.conf"])
+		initTry := 10
+		for i:=0;i<initTry;i++ {
+			r.Log.Info("try init crd client", "name", networkplugin.Name, "num", i)
+			crdClient, err := GetCrdClient(kubeconfigBytes)
+			if err != nil {
+				r.Log.Error(err, "init crd client failure", "name", networkplugin.Name, "namespace", networkplugin.Namespace)
+				time.Sleep(time.Second * 5)
+			} else {
+				networkpluginDeploy.CrdClient = crdClient
+				break
+			}
+		}
+	} else {
+		return ctrl.Result{}, fmt.Errorf("admin.conf key dosen't exist in %s configmap in %s", networkplugin.Name, networkplugin.Namespace)
+	}
+
+	if networkpluginDeploy.CrdClient == nil {
+		return ctrl.Result{}, fmt.Errorf("crd client is nil")
 	}
 
 	networkpluginFinalizer := constants.DefaultFinalizer

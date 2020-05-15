@@ -281,7 +281,7 @@ func waitForMasterRunning(log logr.Logger, ctx context.Context, runtimeclient cl
 			getOk := client.ObjectKey{Name: masterName, Namespace: namespace}
 			getErr := runtimeclient.Get(ctx, getOk, master)
 			if getErr != nil && apierrors.IsNotFound(getErr) {
-				log.Error(getErr,"check master status getErr", "name", masterName)
+				log.Info("check master status not found error", "name", masterName)
 				time.Sleep(time.Second * 3)
 				continue
 			}

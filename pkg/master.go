@@ -48,6 +48,7 @@ type MasterDedploy struct {
 	CaKey           *rsa.PrivateKey
 	AdminKubeconfig []byte
 	MatrixClient    client.Client
+
 	ExposePort      string
 }
 
@@ -370,16 +371,27 @@ func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRe
 	}
 
 	// create kube-proxy daemonset
-	err = m.createKubeproxyDaemonset(fmt.Sprintf("%s/%s:%s",imageRegistry, imageRepo, version))
+	err = m.createKubeproxyDaemonset(fmt.Sprintf("%s/%s:%s",imageRegistry, imageRepo.Proxy, version))
 	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
+	m.Log.Info("[init master] create kube-proxy success", "name", name)
 
 	// create master endpoint
 	err = m.createEndpoints()
 	if IgnoreAlreadyExist(err) != nil {
 		return err
 	}
+
+	m.Log.Info("[init master] create endpoint success", "endpoint port", m.ExposePort, "name", name)
+
+	// create kubelet configmap
+	err = m.createKubeletConfigmap(version)
+	if IgnoreAlreadyExist(err) != nil {
+		return err
+	}
+
+	m.Log.Info("[init master] create kubelet configmap success", "name", name)
 
 	return nil
 }
@@ -494,6 +506,7 @@ func (m *MasterDedploy) createAndUpdateClusterInfo(adminKubeconfig []byte, maste
 
 	kubeadmConfig := `apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
+imageRepository: docker.io/xwcheng
 kubernetesVersion: ` + version
 	configFileName := "/etc/kubernetes/config.yaml"
 	err = WriteFile(configFileName, []byte(kubeadmConfig))
@@ -501,7 +514,7 @@ kubernetesVersion: ` + version
 		return fmt.Errorf("create %s failure for cluster-info, error: %v\n", configFileName, err)
 	}
 
-	cmd := fmt.Sprintf("kubeadm init phase bootstrap-token --kubeconfig=%s --config=%s", kubeconfigFileName, configFileName)
+	cmd := fmt.Sprintf("kubeadm init phase bootstrap-token --kubeconfig=%s --config=%s;kubeadm init phase upload-config kubeadm --kubeconfig=%s --config=%s", kubeconfigFileName, configFileName, kubeconfigFileName, configFileName)
 	out, err := ExecCmd("/bin/sh", cmd)
 	if err != nil {
 		return fmt.Errorf("exec cmd [%s] failure, error: %v\n", cmd, err)
@@ -516,14 +529,6 @@ kubernetesVersion: ` + version
 		return err
 	}
 
-	svc := corev1.Service{}
-	getSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s", m.MasterCrd.Name), Namespace: m.MasterCrd.Namespace}
-	err = m.Client.Get(m.Context, getSvcOk, &svc)
-	if err != nil {
-		return err
-	}
-
-	m.ExposePort = svc.Spec.Ports[0].TargetPort.String()
 	kubeconfigConfKey := "kubeconfig"
 	kubeconfigConf := clusterInfoCm.Data[kubeconfigConfKey]
 	newServer := fmt.Sprintf("server: https://%s:%s",m.MasterCrd.Spec.Expose.Node[0], m.ExposePort)
@@ -569,6 +574,8 @@ func (m *MasterDedploy) createKubeproxyDaemonset(image string) error {
 		if err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 
 	kubeproxyDaemonSet := &appsv1.DaemonSet{}
@@ -582,6 +589,8 @@ func (m *MasterDedploy) createKubeproxyDaemonset(image string) error {
 		if err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 
 	err = m.createRbacRulesForKubeproxy()
@@ -616,6 +625,8 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		if err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 
 	role := &rbac.Role{
@@ -633,6 +644,8 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		if err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 
 	roleBinding := &rbac.RoleBinding{
@@ -658,7 +671,114 @@ func (m *MasterDedploy) createRbacRulesForKubeproxy() error {
 		if err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
+
+	serviceAccount := &corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind: "ServiceAccount",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "kube-system",
+			Name: "kube-proxy",
+		},
+	}
+	if err := m.MatrixClient.Create(m.Context, serviceAccount); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, serviceAccount)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *MasterDedploy) createKubeletConfigmap(version string) error {
+	minorVersion := version[1:5]
+	configMapName := fmt.Sprintf("kubelet-config-%s", minorVersion)
+	fmt.Printf("[kubelet] Creating a ConfigMap %q in namespace %s with the configuration for the kubelets in the cluster\n", configMapName, metav1.NamespaceSystem)
+	kubeletCm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: metav1.NamespaceSystem,
+		},
+		Data: map[string]string{
+			"kubelet": constants.KubeletConfigmapKubeletData115,
+		},
+	}
+
+	if err := m.MatrixClient.Create(m.Context, kubeletCm); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, kubeletCm)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	m.Log.Info("[init master] create kubelet-config configmap success", "name", m.MasterCrd.Name, "configmap", kubeletCm.Name)
+
+	kubeletRole := &rbac.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("kubeadm:kubelet-config-%s", minorVersion),
+			Namespace: metav1.NamespaceSystem,
+		},
+		Rules: []rbac.PolicyRule{
+			{
+				APIGroups: []string{""},
+				ResourceNames: []string{configMapName},
+				Resources: []string{"configmaps"},
+				Verbs: []string{"get"},
+			},
+		},
+	}
+
+	if err := m.MatrixClient.Create(m.Context, kubeletRole); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, kubeletRole)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	m.Log.Info("[init master] create kubeadm:kubelet-config role success", "name", m.MasterCrd.Name, "role", kubeletRole.Name)
+
+	kubeletRoleBinding := &rbac.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("kubeadm:kubelet-config-%s", minorVersion),
+			Namespace: metav1.NamespaceSystem,
+		},
+		RoleRef: rbac.RoleRef{
+			APIGroup: rbac.GroupName,
+			Kind:     "Role",
+			Name:     fmt.Sprintf("kubeadm:kubelet-config-%s", minorVersion),
+		},
+		Subjects: []rbac.Subject{
+			{
+				Kind: rbac.GroupKind,
+				Name: constants.NodesGroup,
+			},
+			{
+				Kind: rbac.GroupKind,
+				Name: constants.NodeBootstrapTokenAuthGroup,
+			},
+		},
+	}
+
+	if err := m.MatrixClient.Create(m.Context, kubeletRoleBinding); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, kubeletRoleBinding)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	m.Log.Info("[init master] create kubeadm:kubelet-config rolebinding success", "name", m.MasterCrd.Name, "rolebinding", kubeletRoleBinding.Name)
 
 	return nil
 }
@@ -681,8 +801,12 @@ func (m *MasterDedploy) createEndpoints() error {
 		},
 	}
 
-	err = m.MatrixClient.Create(m.Context, endpoint)
-	if err != nil {
+	if err := m.MatrixClient.Create(m.Context, endpoint); apierrors.IsAlreadyExists(err) {
+		err = m.MatrixClient.Update(m.Context, endpoint)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 

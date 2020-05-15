@@ -16,23 +16,23 @@ initialCluster=""
 initialClusterState="existing"
 
 EchoLog() {
-logTime=$(date "+%Y-%m-%d %H:%M:%S")
-echo "[ ${logTime} ] $1"
+  logTime=$(date "+%Y-%m-%d %H:%M:%S")
+  echo "[ ${logTime} ] $1"
 }
 
 RemoveMember() {
-memberId=""
-for i in $(seq 5); do
-  memberId=$(etcdctl --endpoints="https://$2:2379" $1 member list 2>&1 | grep $(hostname) | awk '{print $1}' | sed 's/://g')
-  if [ "${memberId}" != "" ]; then break;fi
-done
-if [ "${memberId}" != "" ]; then
-  echo "This member ${HOSTNAME} and member id is ${memberId} already exists in the cluster and will be removed ..."
+  memberId=""
   for i in $(seq 5); do
-	removeResult=$(etcdctl --endpoints="https://$2:2379" $1 member remove ${memberId} 2>&1 || true)
-	if echo "${removeResult}" | grep "Removed member" &>/dev/null; then echo "${removeResult}"; break; fi
+    memberId=$(etcdctl --endpoints="https://$2:2379" $1 member list 2>&1 | grep $(hostname) | awk '{print $1}' | sed 's/://g')
+    if [ "${memberId}" != "" ]; then break;fi
   done
-fi
+  if [ "${memberId}" != "" ]; then
+    echo "This member ${HOSTNAME} and member id is ${memberId} already exists in the cluster and will be removed ..."
+    for i in $(seq 5); do
+      removeResult=$(etcdctl --endpoints="https://$2:2379" $1 member remove ${memberId} 2>&1 || true)
+      if echo "${removeResult}" | grep "Removed member" &>/dev/null; then echo "${removeResult}"; break; fi
+    done
+  fi
 }
 
 echo "Init node ${HOSTNAME} ..."
@@ -53,13 +53,13 @@ EchoLog "Determine if the cluster already exists ..."
 checkEndpoint=1
 addEndpoints=""
 for i in $(seq 5); do
-listResult=$(etcdctl --endpoints="https://${CLUSTER_ENDPOINT}:2379" ${certConfig} cluster-health 2>&1 || true)
-healthyCount=$(echo "${listResult}" | grep "is healthy:" | wc -l)
-if [ "${healthyCount}" != "0" ]; then
-  addEndpoints=$(echo -e "${listResult}" | head -n1 | awk '{print $9}')
-  checkEndpoint=0
-  break
-fi
+  listResult=$(etcdctl --endpoints="https://${CLUSTER_ENDPOINT}:2379" ${certConfig} cluster-health 2>&1 || true)
+  healthyCount=$(echo "${listResult}" | grep "is healthy:" | wc -l)
+  if [ "${healthyCount}" != "0" ]; then
+    addEndpoints=$(echo -e "${listResult}" | head -n1 | awk '{print $9}')
+    checkEndpoint=0
+    break
+  fi
 done
 
 if [ "${addEndpoints}" == "" ]; then
@@ -86,8 +86,8 @@ else
     domain=${nodeName}.${CLUSTER_NAME}.${CLUSTER_NAMESPACE}
     echo "etcdctl --endpoints=\"https://${CLUSTER_ENDPOINT}:2379\" ${certConfig} cluster-health 2>&1 | grep ${domain} | grep \"is health\""
     while true; do
-	  etcdctl --endpoints="https://${CLUSTER_ENDPOINT}:2379" ${certConfig} cluster-health 2>&1 | grep ${domain} | grep "is health" && break
-	  sleep 3
+      etcdctl --endpoints="https://${CLUSTER_ENDPOINT}:2379" ${certConfig} cluster-health 2>&1 | grep ${domain} | grep "is health" && break
+      sleep 3
     done
   done
   addEndpoints="https://${CLUSTER_NAME}-0.${CLUSTER_NAME}.${CLUSTER_NAMESPACE}"
@@ -95,7 +95,7 @@ else
   while true; do
     healthCheck=$(etcdctl --endpoints="${addEndpoints}:2379" ${certConfig} cluster-health 2>&1 | tail -n1)
     if [ "${healthCheck}" == "cluster is healthy" ]; then
-	  sleep 3; break
+      sleep 3; break
     fi
   done
   echo ""; EchoLog "The etcd cluster is healthy, next add member ..."

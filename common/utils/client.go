@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	crdclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,6 +36,20 @@ func GetRuntimeClient(kubeconfig []byte) (runtimeclient.Client, error) {
 	}
 
 	return client, nil
+}
+
+func GetCrdClient(kubeconfig []byte) (*crdclient.Clientset, error) {
+	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	crdClient, err := crdclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return crdClient, nil
 }
 
 func InitMatrixClient(mcClient runtimeclient.Client, ctx context.Context, matrixName string, namespace string) error {

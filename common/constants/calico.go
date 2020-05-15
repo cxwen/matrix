@@ -5,8 +5,8 @@ const (
 	DefaultInstallCniImageRepo     = DefaultImageProject + "/calico-cni-amd64"
 	DefaultNodeImageRepo           = DefaultImageProject + "/calico-node-amd64"
 	DefaultFlexvolDriverImageRepo  = DefaultImageProject + "/calico-pod2daemon-flexvol-amd64"
-	DefaultKubeControllerImageRepo = DefaultImageProject + "/kube-controllers-amd64"
-	DefaultIpAutodetectionMethod   = "interface=eth0"
+	DefaultKubeControllerImageRepo = DefaultImageProject + "/calico-kube-controllers-amd64"
+	DefaultIpAutodetectionMethod   = "can-reach=114.114.114.114"
 	DefaultIpv4poolIpip            = "Always"
 	DefaultIpv4poolCidr            = "100.64.0.0/14"
 

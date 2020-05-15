@@ -68,6 +68,61 @@ kubectl get ns --kubeconfig=admin.conf
 
 ### 加入node
 
+#### 1、机器基础环境配置
+
+关闭防火墙：
+
+```bash
+systemctl stop firewalld
+systemctl disable firewalld
+```
+
+关闭selinux：
+```bash
+sed -i 's/enforcing/disabled/' /etc/selinux/config 
+setenforce 0
+```
+
+关闭swap：
+
+```bash
+swapoff -a  	# 临时
+vim /etc/fstab  #永久（将带有swap的那一行注释掉）
+free -m 		#查看，swap那一行会全部显示0
+```
+
+添加主机名与IP对应关系（记得设置主机名）：
+```bash
+echo "192.168.1.2 centos01" >> /etc/hosts
+```
+
+同步时间：（也可以不用同步，但是三台虚拟机的时间相差不能超过一天，
+因为token只有一天的作用效果）
+
+```bash
+yum install -y ntpdate
+ntpdate ntp1.aliyun.com    #这里用的是阿里的
+```
+
+将桥接的IPv4流量传递到iptables的链：
+```bash
+cat > /etc/sysctl.d/k8s.conf << EOF
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+sysctl --system        #使配置生效
+```
+
+#### 2、node节点安装docker
+
+[docker安装](docs/docker.md)
+
+#### 3、node节点安装kubelet和kubeadm
+
+[kubelet及kubeadm安装](docs/kubernetes.md)
+
+#### 4、使用admin.conf生成 kubeadm join 命令，并在node节点上执行
+
 ```shell
 kubeadm token create --print-join-command --kubeconfig=admin.conf
 ```

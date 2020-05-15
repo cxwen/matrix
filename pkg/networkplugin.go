@@ -11,10 +11,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuberuntime "k8s.io/apimachinery/pkg/runtime"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/kubernetes/pkg/apis/rbac"
+
+	rbac "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,6 +31,7 @@ type NetworkPluginDedploy struct {
 	client.Client
 	Log logr.Logger
 	MatrixClient client.Client
+	CrdClient    *crdclient.Clientset
 }
 
 func (n *NetworkPluginDedploy) CreateCalico(calicoConfig *crdv1.CalicoConfig) error {
@@ -182,6 +186,8 @@ func (n *NetworkPluginDedploy) createOrUpdateCalicoConfigMap() error {
 			if err != nil {
 				return err
 			}
+		} else {
+			return err
 		}
 	}
 
@@ -194,17 +200,19 @@ func (n *NetworkPluginDedploy) createOrUpdateCalicoCrds() error {
 		if err != nil {
 			return err
 		}
-		crd := &apiextensions.CustomResourceDefinition{}
+		crd := &apiextensionsv1beta1.CustomResourceDefinition{}
 		if err := kuberuntime.DecodeInto(clientsetscheme.Codecs.UniversalDecoder(), crdBytes, crd); err != nil {
 			return errors.Wrapf(err, "%s CustomResourceDefinition", constants.UnableToDecodeCalico)
 		}
 
-		if err = n.MatrixClient.Create(n.Context, crd); err != nil {
+		if _, err = n.CrdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd); err != nil {
 			if apierrors.IsAlreadyExists(err) {
-				err = n.MatrixClient.Update(n.Context, crd)
+				_, err = n.CrdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd)
 				if err != nil {
 					return err
 				}
+			} else {
+				return err
 			}
 		}
 	}
@@ -229,6 +237,8 @@ func (n *NetworkPluginDedploy) createOrUpdateServiceAcounts() error {
 				if err != nil {
 					return err
 				}
+			} else {
+				return err
 			}
 		}
 	}
@@ -253,6 +263,8 @@ func (n *NetworkPluginDedploy) createOrUpdateClusterRoles() error {
 				if err != nil {
 					return err
 				}
+			} else {
+				return err
 			}
 		}
 	}
@@ -277,6 +289,8 @@ func (n *NetworkPluginDedploy) createOrUpdateClusterRoleBindings() error {
 				if err != nil {
 					return err
 				}
+			} else {
+				return err
 			}
 		}
 	}
@@ -316,6 +330,8 @@ func (n *NetworkPluginDedploy) createOrUpdateCalicoNodeDaemonset(calicoConfig *c
 			if err != nil {
 				return err
 			}
+		} else {
+			return err
 		}
 	}
 
@@ -341,6 +357,8 @@ func (n *NetworkPluginDedploy) createOrUpdateCalicoKubeControllerDeployment(cali
 			if err != nil {
 				return err
 			}
+		} else {
+			return err
 		}
 	}
 
