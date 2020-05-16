@@ -123,7 +123,7 @@ func (r *EtcdClusterReconciler) createEtcdCluster(etcdDeploy *EctdDeploy, etcdCl
 	}
 
 	if datadir == "" {
-		datadir = constants.DefaultEtcdStorageDir + "/" + etcdCluster.Name
+		datadir = fmt.Sprintf("%s/%s/%s",constants.DefaultEtcdStorageDir,namespace, etcdCluster.Name)
 	}
 
 	err = etcdDeploy.CreateEtcdStatefulSet(etcdClusterName, namespace, replicas, image, datadir)

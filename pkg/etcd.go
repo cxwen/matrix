@@ -119,10 +119,21 @@ func (e *EctdDeploy) CreateService(etcdClusterName string, namespace string) err
 
 func (e *EctdDeploy) CreateEtcdCerts(etcdClusterName string, namespace string) error {
 	clientSvc := &corev1.Service{}
-	getClientSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s-client", etcdClusterName), Namespace: namespace}
-	err := e.Client.Get(e.Context, getClientSvcOk, clientSvc)
-	if err != nil {
-		return err
+	initTry := 10
+	for i:=0;i<initTry;i++ {
+		e.Log.Info("try get etcd client svc", "name", etcdClusterName, "num", i)
+		getClientSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s-client", etcdClusterName), Namespace: namespace}
+		err := e.Client.Get(e.Context, getClientSvcOk, clientSvc)
+		if err != nil {
+			if IgnoreNotFound(err) == nil {
+				return err
+			} else {
+				time.Sleep(time.Second * 5)
+				continue
+			}
+		} else {
+			break
+		}
 	}
 
 	caCfg := Config{

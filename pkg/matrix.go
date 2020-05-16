@@ -275,13 +275,14 @@ func waitForMasterRunning(log logr.Logger, ctx context.Context, runtimeclient cl
 		case <-timeout:
 			errNew := fmt.Errorf("check master ready timeout")
 			err = &errNew
+			log.Error(*err,"check master status not found error", "name", masterName, "namespace", namespace)
 			return
 		default:
 			master := &crdv1.Master{}
 			getOk := client.ObjectKey{Name: masterName, Namespace: namespace}
 			getErr := runtimeclient.Get(ctx, getOk, master)
 			if getErr != nil && apierrors.IsNotFound(getErr) {
-				log.Info("check master status not found error", "name", masterName)
+				log.Info("check master status not found error", "name", masterName, "namespace", namespace)
 				time.Sleep(time.Second * 3)
 				continue
 			}
