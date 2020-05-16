@@ -125,7 +125,7 @@ func (e *EctdDeploy) CreateEtcdCerts(etcdClusterName string, namespace string) e
 		getClientSvcOk := client.ObjectKey{Name: fmt.Sprintf("%s-client", etcdClusterName), Namespace: namespace}
 		err := e.Client.Get(e.Context, getClientSvcOk, clientSvc)
 		if err != nil {
-			if IgnoreNotFound(err) == nil {
+			if IgnoreNotFound(err) != nil {
 				return err
 			} else {
 				time.Sleep(time.Second * 5)
