@@ -62,7 +62,7 @@ for i in $(seq 5); do
   fi
 done
 
-if [ "${addEndpoints}" == "" ]; then
+if [ "${addEndpoints}" = "" ]; then
   addEndpoints="https://${CLUSTER_ENDPOINT}:2379"
 else
   RemoveMember "${certConfig}" "${CLUSTER_ENDPOINT}"
