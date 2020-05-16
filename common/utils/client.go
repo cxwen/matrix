@@ -54,7 +54,7 @@ func GetCrdClient(kubeconfig []byte) (*crdclient.Clientset, error) {
 
 func InitMatrixClient(mcClient runtimeclient.Client, ctx context.Context, matrixName string, namespace string) error {
 	cmName := fmt.Sprintf("%s-kubeconfig", matrixName)
-	if _, ok := MatrixClient[matrixName]; ! ok {
+	if _, ok := MatrixClient[fmt.Sprintf("%s-%s", namespace, matrixName)]; ! ok {
 		configmap := &corev1.ConfigMap{}
 		getOk := runtimeclient.ObjectKey{Name: cmName, Namespace: namespace}
 		err := mcClient.Get(ctx, getOk, configmap)
