@@ -34,7 +34,7 @@ type MasterSpec struct {
 	ImageRegistry string     `json:"imageRegistry,omitempty"`
 	ImageRepo     *ImageRepo `json:"imageRepo,omitempty"`
 	EtcdCluster   string     `json:"etcdCluster,omitempty"`
-	Expose        *Expose    `json:"expose"`
+	Expose        *Expose    `json:"expose,omitempty"`
 }
 
 type ImageRepo struct {
@@ -45,9 +45,9 @@ type ImageRepo struct {
 }
 
 type Expose struct {
-	Method string `json:"method"`
-	Node []string `json:"node"`
-	Port string   `json:"port"`
+	Method string `json:"method,omitempty"`
+	Node []string `json:"node,omitempty"`
+	Port string   `json:"port,omitempty"`
 }
 
 type MasterPhase string

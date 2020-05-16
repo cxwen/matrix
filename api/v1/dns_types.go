@@ -29,8 +29,8 @@ type DnsSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Dns. Edit Dns_types.go to remove/update
-	Type      string `json:"type"`
-	Version   string `json:"version"`
+	Type      string `json:"type,omitempty"`
+	Version   string `json:"version,omitempty"`
 	Replicas  int    `json:"replicas,omitempty"`
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 	ImageRepo string `json:"imageRepo,omitempty"`
