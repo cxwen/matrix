@@ -1,0 +1,45 @@
+apiVersion: crd.cxwen.com/v1
+kind: Matrix
+metadata:
+  name: sample
+  namespace: default
+spec:
+  dns:
+    imageRegistry: docker.io
+    imageRepo: xwcheng/coredns-amd64
+    replicas: 2
+    type: coredns
+    version: 1.6.5
+  etcd:
+    imageRegistry: docker.io
+    imageRepo: xwcheng/etcd-amd64
+    replicas: 1
+    storageDir: /data/etcd
+    version: 3.3.17
+  master:
+    etcdCluster: sample-ec
+    expose:
+      method: NodePort
+      node:
+        - 192.168.1.88
+      port: "31898"
+    imageRegistry: docker.io
+    imageRepo:
+      apiserver: xwcheng/kube-apiserver-amd64
+      controllerManager: xwcheng/kube-controller-manager-amd64
+      proxy: xwcheng/kube-proxy-amd64
+      scheduler: xwcheng/kube-scheduler-amd64
+    replicas: 1
+    version: v1.15.12
+  networkPlugin:
+    calico:
+      flexvolDriverImageRepo: xwcheng/calico-pod2daemon-flexvol-amd64
+      imageRegistry: docker.io
+      installCniImageRepo: xwcheng/calico-cni-amd64
+      ipAutodetectionMethod: can-reach=114.114.114.114
+      ipv4poolCidr: 100.64.0.0/14
+      ipv4poolIpip: Always
+      kubeControllerImageRepo: xwcheng/calico-kube-controllers-amd64
+      nodeImageRepo: xwcheng/calico-node-amd64
+      version: v3.9.5
+    type: calico

@@ -75,9 +75,6 @@ spec:
                   type: string
                 version:
                   type: string
-              required:
-              - type
-              - version
               type: object
             etcd:
               description: EtcdClusterSpec defines the desired state of EtcdCluster
@@ -115,10 +112,6 @@ spec:
                       type: array
                     port:
                       type: string
-                  required:
-                  - method
-                  - node
-                  - port
                   type: object
                 imageRegistry:
                   type: string
@@ -139,8 +132,6 @@ spec:
                   description: Foo is an example field of Master. Edit Master_types.go
                     to remove/update
                   type: string
-              required:
-              - expose
               type: object
             networkPlugin:
               description: NetworkPluginSpec defines the desired state of NetworkPlugin

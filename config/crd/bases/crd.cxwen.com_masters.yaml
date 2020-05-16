@@ -80,10 +80,6 @@ spec:
                   type: array
                 port:
                   type: string
-              required:
-              - method
-              - node
-              - port
               type: object
             imageRegistry:
               type: string
@@ -104,8 +100,6 @@ spec:
               description: Foo is an example field of Master. Edit Master_types.go
                 to remove/update
               type: string
-          required:
-          - expose
           type: object
         status:
           description: MasterStatus defines the observed state of Master

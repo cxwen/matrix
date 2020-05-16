@@ -40,9 +40,6 @@ func ParseTemplate(strtmpl string, obj ...interface{}) ([]byte, error) {
 }
 
 func WriteFile(fileName string, b []byte) error {
-	if Exists(fileName) {
-		return nil
-	}
 	var dir string
 	arr := strings.Split(fileName, "/")
 

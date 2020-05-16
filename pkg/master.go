@@ -397,6 +397,7 @@ func (m *MasterDedploy) MasterInit(version string, imageRegistry string, imageRe
 }
 
 func (m *MasterDedploy) CheckMasterRunning(name string, namespace string) error {
+	time.Sleep(time.Second * 5)
 	endpoint := &corev1.Endpoints{}
 	endpointOk := client.ObjectKey{Name: fmt.Sprintf("%s", name), Namespace: namespace}
 
@@ -423,11 +424,12 @@ func (m *MasterDedploy) CheckMasterRunning(name string, namespace string) error 
 				endpointResult := ""
 				if svcEndpoint.Subsets != nil && len(svcEndpoint.Subsets) > 0 {
 					for _, e := range svcEndpoint.Subsets[0].Addresses {
-						endpointResult += fmt.Sprintf("%s:6443", e.IP)
+						endpointResult += fmt.Sprintf("%s:6443,", e.IP)
 					}
 				}
-				log.Info("check master endpoint", "name", svcEndpoint.Name, "result", endpointResult)
+				log.Info("check master endpoint", "name", svcEndpoint.Name, "result", endpointResult[0:len(endpointResult)-1])
 				if endpointResult != "" {
+					time.Sleep(time.Second * 3)
 					return
 				}
 

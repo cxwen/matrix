@@ -412,6 +412,9 @@ func (m *MatrixDedploy) setDefaultMaster(name string, mc *crdv1.MatrixSpec, mast
 		if len(master.Spec.Expose.Node) == 0 {
 			master.Spec.Expose.Node = append(master.Spec.Expose.Node, nodeIp)
 		}
+		if master.Spec.Expose.Port == "" {
+			master.Spec.Expose.Port = mc.Master.Expose.Port
+		}
 	}
 
 	return nil

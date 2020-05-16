@@ -67,9 +67,6 @@ spec:
               type: string
             version:
               type: string
-          required:
-          - type
-          - version
           type: object
         status:
           description: DnsStatus defines the observed state of Dns
