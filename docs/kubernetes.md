@@ -34,12 +34,3 @@ yum install -y kubelet-${k8sVersion} kubeadm-${k8sVersion} kubectl-${k8sVersion}
 ```bash
 systemctl enable kubelet
 ```
-
-4、配置kubelet配置文件
-
-```bash
-cat > /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf << EOF
-KUBELET_KUBEADM_ARGS="--cgroup-driver=cgroupfs --network-plugin=cni --pod-infra-container-image=hub.iflytek.com/k8s/pause:3.1"
-EOF
-
-```

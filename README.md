@@ -86,9 +86,9 @@ setenforce 0
 关闭swap：
 
 ```bash
-swapoff -a  	# 临时
+swapoff -a      # 临时
 vim /etc/fstab  #永久（将带有swap的那一行注释掉）
-free -m 		#查看，swap那一行会全部显示0
+free -m         #查看，swap那一行会全部显示0
 ```
 
 添加主机名与IP对应关系（记得设置主机名）：
