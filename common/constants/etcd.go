@@ -94,7 +94,7 @@ else
   echo ""; EchoLog "Check if the etcd cluster is healthy ..."
   while true; do
     healthCheck=$(etcdctl --endpoints="${addEndpoints}:2379" ${certConfig} cluster-health 2>&1 | tail -n1)
-    if [ "${healthCheck}" == "cluster is healthy" ]; then
+    if [ "${healthCheck}" = "cluster is healthy" ]; then
       sleep 3; break
     fi
   done
@@ -103,7 +103,7 @@ else
   addResult=""
   while true; do
     addResult=$(etcdctl --endpoints="${addEndpoints}:2379" ${certConfig} member add ${HOSTNAME} ${nodeDomain}:2380 || true)
-    if [ "$?" == "0" ]; then break; fi
+    if [ "$?" = "0" ]; then break; fi
   done
   echo "${addResult}"
   EchoLog "The member ${HOSTNAME} has been added to cluster"
