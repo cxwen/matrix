@@ -28,7 +28,7 @@
 
 # 快速开始
 
-母集群：在使用之前，需要先有一个已运行的kubernetes集群，版本：v1.15.+
+母集群：在使用之前，需要先有一个已运行的kubernetes集群，版本：v1.15.*，kubernetes集群部署推荐[sealos一键化部署](https://github.com/fanux/sealos)
 
 ### 母集群中创建CRD 
 
