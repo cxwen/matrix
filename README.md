@@ -26,11 +26,13 @@
 
 ![](./matrix.png)
 
+![](./matrix-detail.png)
+
 # 快速开始
 
-母集群：在使用之前，需要先有一个已运行的kubernetes集群，版本：v1.15.+
+母体集群：在使用之前，需要先有一个已运行的kubernetes集群，版本：v1.15.+
 
-### 母集群中创建CRD 
+### 母体集群中创建CRD 
 
 ``` shell
 kubectl apply -f config/crd.yaml
