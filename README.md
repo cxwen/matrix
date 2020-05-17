@@ -24,7 +24,11 @@
 
 # 架构
 
+## 整体架构
+
 ![](./matrix.png)
+
+## 组件架构
 
 ![](./matrix-detail.png)
 
